@@ -1,5 +1,5 @@
 -- =====================================================
--- RII HUB - COPY AVATAR (FIXED & STABLE)
+-- RII HUB - COPY AVATAR (STABLE & SAFE)
 -- =====================================================
 
 return function(parent)
@@ -16,7 +16,7 @@ return function(parent)
         end
     end
 
-    -- ================= MAIN PANEL =================
+    -- ================= UI =================
     local panel = Instance.new("Frame", parent)
     panel.Size = UDim2.new(1,0,1,0)
     panel.BackgroundTransparency = 1
@@ -25,7 +25,6 @@ return function(parent)
     local plist = Instance.new("ScrollingFrame", panel)
     plist.Size = UDim2.new(0.35,-10,1,-20)
     plist.Position = UDim2.new(0,10,0,10)
-    plist.CanvasSize = UDim2.new(0,0,0,0)
     plist.ScrollBarThickness = 6
     plist.BackgroundTransparency = 1
 
@@ -60,26 +59,14 @@ return function(parent)
             return result
         end
 
-        local body, cloth, acc = {}, {}, {}
-
         for _,v in ipairs(info.assets) do
-            local id = v.id
-            local name = v.name or "Unknown"
-            local t = v.assetTypeId
-
-            if table.find({27,28,29,30,31}, t) then
-                table.insert(body, {id=id, name=name})
-            elseif t == 11 or t == 12 then
-                table.insert(cloth, {id=id, name=name})
-            else
-                table.insert(acc, {id=id, name=name})
+            if v.id then
+                table.insert(result, {
+                    id = v.id,
+                    name = v.name or "Unknown"
+                })
             end
         end
-
-        for _,v in ipairs(body) do table.insert(result,v) end
-        for _,v in ipairs(cloth) do table.insert(result,v) end
-        for _,v in ipairs(acc) do table.insert(result,v) end
-
         return result
     end
 
@@ -92,40 +79,38 @@ return function(parent)
         local avatar = Instance.new("ImageLabel", right)
         avatar.Size = UDim2.new(0,140,0,140)
         avatar.BackgroundTransparency = 1
-        avatar.Image = "https://www.roblox.com/headshot-thumbnail/image?userId="
+        avatar.Image =
+            "https://www.roblox.com/headshot-thumbnail/image?userId="
             ..plr.UserId.."&width=420&height=420&format=png"
 
         Instance.new("UICorner", avatar)
 
         local assets = getAssets(plr.UserId)
 
-        -- LIST ASSET
         for _,v in ipairs(assets) do
             local lbl = Instance.new("TextLabel", right)
             lbl.Size = UDim2.new(1,-10,0,24)
             lbl.Text = v.name.." ["..v.id.."]"
             lbl.TextColor3 = TEXT
             lbl.BackgroundTransparency = 1
-            lbl.TextXAlignment = Left
+            lbl.TextXAlignment = Enum.TextXAlignment.Left
             lbl.Font = Enum.Font.Gotham
             lbl.TextScaled = true
         end
 
-        -- COPY BUTTONS
         for i=1,#assets,BATCH do
             local btn = Instance.new("TextButton", right)
             btn.Size = UDim2.new(1,-10,0,36)
             btn.BackgroundColor3 = BTN
             btn.TextColor3 = TEXT
             btn.TextScaled = true
+            btn.Text = "COPY "..math.ceil(i/BATCH)
+            Instance.new("UICorner", btn)
 
             local txt = "hat"
             for x=i,math.min(i+BATCH-1,#assets) do
                 txt ..= " "..assets[x].id
             end
-
-            btn.Text = "COPY "..math.ceil(i/BATCH)
-            Instance.new("UICorner", btn)
 
             btn.MouseEnter:Connect(function()
                 btn.BackgroundColor3 = HOVER
@@ -139,7 +124,7 @@ return function(parent)
         end
     end
 
-    -- ================= BUILD PLAYER LIST =================
+    -- ================= PLAYER LIST =================
     local function rebuild()
         plist:ClearAllChildren()
         plLayout.Parent = plist
