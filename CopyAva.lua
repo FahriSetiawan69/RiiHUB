@@ -1,48 +1,43 @@
 -- =====================================================
--- RII HUB - COPY AVATAR (FIXED MODULAR)
+-- RII HUB - COPY AVATAR (STABLE MODULAR FIX)
 -- =====================================================
 
 return function(parent)
-    -- ===== SERVICES =====
     local Players = game:GetService("Players")
-    local AvatarEditorService = game:GetService("AvatarEditorService")
 
-    -- ===== CLEAN PARENT (PENTING) =====
-    for _,v in ipairs(parent:GetChildren()) do
-        v:Destroy()
-    end
-
-    -- ===== CONFIG =====
-    local BATCH_SIZE = 4
-    local TEXT_COLOR = Color3.fromRGB(255,255,255)
-    local BG = Color3.fromRGB(55,35,95)
-    local BTN = Color3.fromRGB(120,80,255)
-    local BTN_HOVER = Color3.fromRGB(160,110,255)
+    -- ===== SAFE CLEAR =====
+    local old = parent:FindFirstChild("CopyAvaRoot")
+    if old then old:Destroy() end
 
     -- ===== ROOT =====
-    local root = Instance.new("Frame", parent)
+    local root = Instance.new("Frame")
+    root.Name = "CopyAvaRoot"
+    root.Parent = parent
     root.Size = UDim2.new(1,0,1,0)
-    root.BackgroundColor3 = BG
+    root.BackgroundColor3 = Color3.fromRGB(55,35,95)
     Instance.new("UICorner", root)
 
-    -- ===== PLAYER LIST =====
-    local playerList = Instance.new("ScrollingFrame", root)
-    playerList.Size = UDim2.new(0.28, -10, 1, -20)
-    playerList.Position = UDim2.new(0,10,0,10)
-    playerList.CanvasSize = UDim2.zero
-    playerList.ScrollBarThickness = 6
-    playerList.BackgroundTransparency = 1
+    local TEXT = Color3.new(1,1,1)
+    local BTN = Color3.fromRGB(120,80,255)
+    local BTN_H = Color3.fromRGB(160,120,255)
 
-    local plLayout = Instance.new("UIListLayout", playerList)
+    -- ===== PLAYER LIST =====
+    local plist = Instance.new("ScrollingFrame", root)
+    plist.Position = UDim2.new(0,10,0,10)
+    plist.Size = UDim2.new(0.3,-15,1,-20)
+    plist.ScrollBarThickness = 6
+    plist.BackgroundTransparency = 1
+
+    local plLayout = Instance.new("UIListLayout", plist)
     plLayout.Padding = UDim.new(0,6)
     plLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        playerList.CanvasSize = UDim2.new(0,0,0,plLayout.AbsoluteContentSize.Y + 10)
+        plist.CanvasSize = UDim2.new(0,0,0,plLayout.AbsoluteContentSize.Y + 10)
     end)
 
     -- ===== RIGHT PANEL =====
     local right = Instance.new("Frame", root)
-    right.Position = UDim2.new(0.28,10,0,10)
-    right.Size = UDim2.new(0.72,-20,1,-20)
+    right.Position = UDim2.new(0.3,10,0,10)
+    right.Size = UDim2.new(0.7,-20,1,-20)
     right.BackgroundTransparency = 1
 
     -- ===== AVATAR PREVIEW (CENTER) =====
@@ -62,158 +57,133 @@ return function(parent)
     assetList.BackgroundTransparency = 1
 
     local asLayout = Instance.new("UIListLayout", assetList)
-    asLayout.Padding = UDim.new(0,6)
+    asLayout.Padding = UDim.new(0,8)
     asLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         assetList.CanvasSize = UDim2.new(0,0,0,asLayout.AbsoluteContentSize.Y + 10)
     end)
 
     -- ===== UTIL =====
-    local function copy(text)
-        if setclipboard then
-            setclipboard(text)
-        end
+    local function copy(txt)
+        if setclipboard then setclipboard(txt) end
     end
 
-    -- ===== GET ASSETS (ORDERED) =====
+    -- ===== GET PLAYER ASSETS ONLY =====
     local function getAssets(userId)
-        local ordered = {
-            Body = {},
-            Clothing = {},
-            Accessory = {}
-        }
-
         local ok, info = pcall(function()
             return Players:GetCharacterAppearanceInfoAsync(userId)
         end)
-        if not ok or not info or not info.assets then
-            return {}
-        end
+        if not ok or not info or not info.assets then return {} end
+
+        local body, cloth, acc = {}, {}, {}
 
         for _,a in ipairs(info.assets) do
-            if a.assetType and a.id then
-                if a.assetType:find("Body") then
-                    table.insert(ordered.Body, a)
-                elseif a.assetType:find("Shirt") or a.assetType:find("Pants") then
-                    table.insert(ordered.Clothing, a)
-                else
-                    table.insert(ordered.Accessory, a)
-                end
+            if not a.id then continue end
+            if a.assetType:find("Body") then
+                table.insert(body, a)
+            elseif a.assetType:find("Shirt") or a.assetType:find("Pants") then
+                table.insert(cloth, a)
+            else
+                table.insert(acc, a)
             end
         end
 
         local final = {}
-        for _,grp in ipairs({ordered.Body, ordered.Clothing, ordered.Accessory}) do
-            for _,v in ipairs(grp) do
+        for _,t in ipairs({body, cloth, acc}) do
+            for _,v in ipairs(t) do
                 table.insert(final, v)
             end
         end
-
         return final
     end
 
-    -- ===== BUILD ASSET UI =====
-    local function showAssets(player)
-        -- clear
-        for _,v in ipairs(assetList:GetChildren()) do
-            if v:IsA("Frame") then v:Destroy() end
-        end
+    -- ===== SHOW PLAYER DATA =====
+    local function showPlayer(plr)
+        assetList:ClearAllChildren()
 
-        -- avatar preview
         viewport:ClearAllChildren()
         cam = Instance.new("Camera", viewport)
         viewport.CurrentCamera = cam
 
-        local clone = Players:CreateHumanoidModelFromUserId(player.UserId)
-        clone.Parent = viewport
-        clone:SetPrimaryPartCFrame(CFrame.new(0,0,0))
-        cam.CFrame = CFrame.new(0,1.5,5, 0,1,0)
+        local model = Players:CreateHumanoidModelFromUserId(plr.UserId)
+        model.Parent = viewport
+        model:SetPrimaryPartCFrame(CFrame.new())
+        cam.CFrame = CFrame.new(0,1.5,6)
 
-        -- assets
-        local assets = getAssets(player.UserId)
-        if #assets == 0 then return end
-
+        local assets = getAssets(plr.UserId)
         local batch = {}
-        local function flushBatch(startIndex)
+
+        local function flush()
+            if #batch == 0 then return end
+
             local box = Instance.new("Frame", assetList)
-            box.Size = UDim2.new(1,0,0, (#batch * 22) + 44)
+            box.Size = UDim2.new(1,0,0,#batch*22+36)
             box.BackgroundTransparency = 1
 
             local y = 0
             for _,a in ipairs(batch) do
                 local t = Instance.new("TextLabel", box)
-                t.Position = UDim2.new(0,0,0,y)
                 t.Size = UDim2.new(1,0,0,20)
+                t.Position = UDim2.new(0,0,0,y)
                 t.TextXAlignment = Left
-                t.Text = a.name.." ("..a.id..")"
-                t.TextColor3 = TEXT_COLOR
+                t.Text = a.name.." ["..a.id.."]"
+                t.TextColor3 = TEXT
                 t.BackgroundTransparency = 1
                 y += 22
             end
 
             local btn = Instance.new("TextButton", box)
+            btn.Size = UDim2.new(0.4,0,0,30)
             btn.Position = UDim2.new(0,0,0,y+4)
-            btn.Size = UDim2.new(0.4,0,0,32)
             btn.Text = "COPY"
             btn.BackgroundColor3 = BTN
-            btn.TextColor3 = TEXT_COLOR
+            btn.TextColor3 = TEXT
             Instance.new("UICorner", btn)
 
-            btn.MouseEnter:Connect(function()
-                btn.BackgroundColor3 = BTN_HOVER
-            end)
-            btn.MouseLeave:Connect(function()
-                btn.BackgroundColor3 = BTN
-            end)
+            btn.MouseEnter:Connect(function() btn.BackgroundColor3 = BTN_H end)
+            btn.MouseLeave:Connect(function() btn.BackgroundColor3 = BTN end)
 
             btn.MouseButton1Click:Connect(function()
-                local text = ""
+                local text = "hat"
                 for _,a in ipairs(batch) do
-                    text ..= a.id .. "\n"
+                    text ..= " "..a.id
                 end
                 copy(text)
             end)
+
+            batch = {}
         end
 
-        for i,a in ipairs(assets) do
+        for _,a in ipairs(assets) do
             table.insert(batch, a)
-            if #batch == BATCH_SIZE then
-                flushBatch(i - (#batch - 1))
-                batch = {}
-            end
+            if #batch == 4 then flush() end
         end
-        if #batch > 0 then
-            flushBatch(#assets - (#batch - 1))
-        end
+        flush()
     end
 
     -- ===== BUILD PLAYER LIST =====
     local function buildPlayers()
-        for _,v in ipairs(playerList:GetChildren()) do
-            if v:IsA("TextButton") then v:Destroy() end
-        end
+        plist:ClearAllChildren()
 
-        local list = Players:GetPlayers()
-        table.sort(list, function(a,b)
-            return a.Name:lower() < b.Name:lower()
-        end)
+        local layout = Instance.new("UIListLayout", plist)
+        layout.Padding = UDim.new(0,6)
 
-        for _,p in ipairs(list) do
-            local b = Instance.new("TextButton", playerList)
+        for _,p in ipairs(Players:GetPlayers()) do
+            local b = Instance.new("TextButton", plist)
             b.Size = UDim2.new(1,0,0,36)
             b.Text = p.Name
-            b.TextColor3 = TEXT_COLOR
+            b.TextColor3 = TEXT
             b.BackgroundColor3 = Color3.fromRGB(85,55,135)
             Instance.new("UICorner", b)
 
             b.MouseEnter:Connect(function()
-                b.BackgroundColor3 = BTN_HOVER
+                b.BackgroundColor3 = BTN_H
             end)
             b.MouseLeave:Connect(function()
                 b.BackgroundColor3 = Color3.fromRGB(85,55,135)
             end)
 
             b.MouseButton1Click:Connect(function()
-                showAssets(p)
+                showPlayer(p)
             end)
         end
     end
