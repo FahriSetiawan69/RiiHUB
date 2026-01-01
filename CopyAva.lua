@@ -1,5 +1,5 @@
 -- =====================================================
--- RII HUB - FEATURE COPY AVA FIXED
+-- RII HUB - FEATURE COPY AVA
 -- Modular version
 -- parent = panelContainer dari Home GUI
 -- =====================================================
@@ -19,6 +19,7 @@ return function(parent)
     }
 
     local PANEL_BG = Color3.fromRGB(60,40,100)
+    local SIDEBAR_BG = Color3.fromRGB(50,30,90)
     local BTN_HOVER = Color3.fromRGB(80,50,150)
     local TEXT_COLOR = Color3.fromRGB(255,255,255)
 
@@ -36,34 +37,33 @@ return function(parent)
         if not ok or not info or not info.assets then
             return result
         end
-
-        -- urut berdasarkan Tubuh > Pakaian > Aksesoris
-        local assetOrder = {"Body", "Clothing", "Accessory"}
-        local sorted = {}
-        for _,category in ipairs(assetOrder) do
-            for _,v in ipairs(info.assets) do
-                if v.id and v.type == category then
-                    table.insert(sorted, {id=v.id, name=v.name or "Unknown", type=category})
+        -- urut: body > clothing > accessories
+        local body, clothing, accessories = {}, {}, {}
+        for _,v in ipairs(info.assets) do
+            if v.assetType and v.id then
+                local cat = v.assetType.name:lower()
+                if cat:find("body") then
+                    table.insert(body,v.id)
+                elseif cat:find("shirt") or cat:find("pants") then
+                    table.insert(clothing,v.id)
+                else
+                    table.insert(accessories,v.id)
                 end
             end
         end
-        return sorted
+        for _,v in ipairs(body) do table.insert(result,v) end
+        for _,v in ipairs(clothing) do table.insert(result,v) end
+        for _,v in ipairs(accessories) do table.insert(result,v) end
+        return result
     end
 
     -- ================= COPY PANEL =================
-    local copyPanel = Instance.new("ScrollingFrame", parent)
+    local copyPanel = Instance.new("Frame", parent)
     copyPanel.Size = UDim2.new(1,0,1,0)
     copyPanel.BackgroundColor3 = PANEL_BG
     copyPanel.BackgroundTransparency = 0.05
-    copyPanel.ScrollBarThickness = 6
+    copyPanel.Visible = true
     Instance.new("UICorner", copyPanel)
-    copyPanel.CanvasSize = UDim2.new(0,0,0,0)
-    copyPanel.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-    local layout = Instance.new("UIListLayout", copyPanel)
-    layout.Padding = UDim.new(0,8)
-    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
 
     -- ----- SEARCH BOX -----
     local searchBox = Instance.new("TextBox", copyPanel)
@@ -96,7 +96,6 @@ return function(parent)
 
     local asLayout = Instance.new("UIListLayout", assetPanel)
     asLayout.Padding = UDim.new(0,6)
-    asLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     asLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         assetPanel.CanvasSize = UDim2.new(0,0,0,asLayout.AbsoluteContentSize.Y + 10)
     end)
@@ -122,48 +121,48 @@ return function(parent)
     -- ================= DATA =================
     local CURRENT_ASSETS = {}
     local BUTTON_STATES = {}
-    local AVATAR_IMAGE = nil
 
     local function rebuildAssetButtons()
+        -- destroy semua children assetPanel
         for _,c in ipairs(assetPanel:GetChildren()) do
-            if c:IsA("TextButton") or c:IsA("TextLabel") or c:IsA("ImageLabel") then
+            if not c:IsA("UIListLayout") then
                 c:Destroy()
             end
         end
         BUTTON_STATES = {}
 
-        -- ----- AVATAR -----
-        if AVATAR_IMAGE then AVATAR_IMAGE:Destroy() end
-        local avatarId = "rbxthumb://type=AvatarHeadShot&id="..CURRENT_ASSETS.UserId.."&w=150&h=150"
-        AVATAR_IMAGE = Instance.new("ImageLabel", assetPanel)
-        AVATAR_IMAGE.Size = UDim2.new(0,150,0,150)
-        AVATAR_IMAGE.Position = UDim2.new(0.5,-75,0,0)
-        AVATAR_IMAGE.BackgroundTransparency = 1
-        AVATAR_IMAGE.Image = avatarId
+        if #CURRENT_ASSETS == 0 then return end
 
-        -- ----- ASSET BUTTONS -----
-        local total = #CURRENT_ASSETS.Assets
-        if total == 0 then return end
+        -- ----- AVATAR THUMBNAIL -----
+        local avatar = Instance.new("ImageLabel", assetPanel)
+        avatar.Size = UDim2.new(0,120,0,120)
+        avatar.AnchorPoint = Vector2.new(0.5,0)
+        avatar.Position = UDim2.new(0.5,0,0,0)
+        avatar.BackgroundTransparency = 1
+        avatar.Image = Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
 
+        -- ----- COPY BUTTONS PER BATCH -----
+        local total = #CURRENT_ASSETS
         local batchCount = math.ceil(total / BATCH_SIZE)
         for i = 1, batchCount do
             local s = (i-1)*BATCH_SIZE + 1
             local e = math.min(i*BATCH_SIZE, total)
 
-            -- display asset names
+            -- text asset info
+            local infoText = ""
             for x = s, e do
-                local asset = CURRENT_ASSETS.Assets[x]
-                local lbl = Instance.new("TextLabel", assetPanel)
-                lbl.Size = UDim2.new(1,-10,0,30)
-                lbl.BackgroundTransparency = 0.3
-                lbl.BackgroundColor3 = Color3.fromRGB(90,60,140)
-                lbl.TextColor3 = TEXT_COLOR
-                lbl.Text = asset.type.." "..asset.name.." ["..asset.id.."]"
-                lbl.TextScaled = true
-                Instance.new("UICorner", lbl)
+                infoText ..= "Asset "..x.." ["..CURRENT_ASSETS[x].."]\n"
             end
+            local infoLabel = Instance.new("TextLabel", assetPanel)
+            infoLabel.Size = UDim2.new(1,0,0,20*(e-s+1))
+            infoLabel.Text = infoText
+            infoLabel.TextColor3 = TEXT_COLOR
+            infoLabel.BackgroundTransparency = 1
+            infoLabel.TextScaled = false
+            infoLabel.TextXAlignment = Enum.TextXAlignment.Left
+            infoLabel.TextYAlignment = Enum.TextYAlignment.Top
 
-            -- copy button per batch
+            -- copy button
             local btn = Instance.new("TextButton", assetPanel)
             btn.Size = UDim2.new(1,0,0,36)
             btn.Text = "COPY "..i.." ("..s.." - "..e..")"
@@ -173,6 +172,7 @@ return function(parent)
             Instance.new("UICorner", btn)
 
             BUTTON_STATES[btn] = 1
+
             btn.MouseEnter:Connect(function() btn.BackgroundColor3 = BTN_HOVER end)
             btn.MouseLeave:Connect(function() 
                 local idx = BUTTON_STATES[btn] 
@@ -182,7 +182,7 @@ return function(parent)
             btn.MouseButton1Click:Connect(function()
                 local text = "hat"
                 for x = s, e do
-                    text ..= " " .. CURRENT_ASSETS.Assets[x].id
+                    text ..= " " .. CURRENT_ASSETS[x]
                 end
                 copyToClipboard(text)
                 showNotif("COPIED "..s.." - "..e)
@@ -198,7 +198,9 @@ return function(parent)
     -- ----- BUILD PLAYER LIST -----
     local function rebuildPlayerList()
         for _,c in ipairs(plist:GetChildren()) do
-            if c:IsA("TextButton") then c:Destroy() end
+            if c:IsA("TextButton") then
+                c:Destroy()
+            end
         end
 
         local sortedPlayers = {}
@@ -219,8 +221,7 @@ return function(parent)
             b.MouseLeave:Connect(function() b.BackgroundColor3 = Color3.fromRGB(90,60,140) end)
 
             b.MouseButton1Click:Connect(function()
-                local assets = getAssets(plr.UserId)
-                CURRENT_ASSETS = {Assets=assets, UserId=plr.UserId}
+                CURRENT_ASSETS = getAssets(plr.UserId)
                 rebuildAssetButtons()
             end)
         end
