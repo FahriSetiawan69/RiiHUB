@@ -125,7 +125,7 @@ end
 -- Tambahkan semua fitur dengan raw GitHub URL
 -- Format: ["Nama Fitur"] = "RAW_URL"
 local FEATURES = {
-	["Copy Ava"] = "https://raw.githubusercontent.com/username/rii-hub/main/CopyAva.lua",
+	["Copy Ava"] = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/refs/heads/main/CopyAva.lua",
 	-- ["Nama Fitur Lain"] = "https://raw.githubusercontent.com/username/rii-hub/main/FiturLain.lua",
 }
 
@@ -140,3 +140,4 @@ for name, url in pairs(FEATURES) do
 		warn("Gagal load fitur:", name, url)
 	end
 endreturn panelContainer
+
