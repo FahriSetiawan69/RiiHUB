@@ -37,23 +37,23 @@ return function(parent)
         if not ok or not info or not info.assets then
             return result
         end
-        -- urut: body > clothing > accessories
+        -- urut: Body > Clothing > Accessories
         local body, clothing, accessories = {}, {}, {}
         for _,v in ipairs(info.assets) do
-            if v.assetType and v.id then
-                local cat = v.assetType.name:lower()
-                if cat:find("body") then
-                    table.insert(body,v.id)
-                elseif cat:find("shirt") or cat:find("pants") then
-                    table.insert(clothing,v.id)
+            if v.id then
+                local cat = v.category or ""
+                if cat:find("Body") then
+                    table.insert(body, v.id)
+                elseif cat:find("Clothing") then
+                    table.insert(clothing, v.id)
                 else
-                    table.insert(accessories,v.id)
+                    table.insert(accessories, v.id)
                 end
             end
         end
-        for _,v in ipairs(body) do table.insert(result,v) end
-        for _,v in ipairs(clothing) do table.insert(result,v) end
-        for _,v in ipairs(accessories) do table.insert(result,v) end
+        for _,id in ipairs(body) do table.insert(result,id) end
+        for _,id in ipairs(clothing) do table.insert(result,id) end
+        for _,id in ipairs(accessories) do table.insert(result,id) end
         return result
     end
 
@@ -96,6 +96,7 @@ return function(parent)
 
     local asLayout = Instance.new("UIListLayout", assetPanel)
     asLayout.Padding = UDim.new(0,6)
+    asLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     asLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         assetPanel.CanvasSize = UDim2.new(0,0,0,asLayout.AbsoluteContentSize.Y + 10)
     end)
@@ -121,48 +122,43 @@ return function(parent)
     -- ================= DATA =================
     local CURRENT_ASSETS = {}
     local BUTTON_STATES = {}
+    local currentAvatar = nil
 
     local function rebuildAssetButtons()
-        -- destroy semua children assetPanel
         for _,c in ipairs(assetPanel:GetChildren()) do
-            if not c:IsA("UIListLayout") then
-                c:Destroy()
-            end
+            c:Destroy()
         end
         BUTTON_STATES = {}
 
-        if #CURRENT_ASSETS == 0 then return end
+        -- ===== AVATAR THUMBNAIL =====
+        if currentAvatar then
+            currentAvatar:Destroy()
+        end
+        currentAvatar = Instance.new("ImageLabel", assetPanel)
+        currentAvatar.Size = UDim2.new(0,120,0,120)
+        currentAvatar.BackgroundTransparency = 1
+        currentAvatar.Position = UDim2.new(0.5,-60,0,0)
+        currentAvatar.Image = "https://www.roblox.com/headshot-thumbnail/image?userId="..CURRENT_PLAYER.UserId.."&width=420&height=420&format=png"
 
-        -- ----- AVATAR THUMBNAIL -----
-        local avatar = Instance.new("ImageLabel", assetPanel)
-        avatar.Size = UDim2.new(0,120,0,120)
-        avatar.AnchorPoint = Vector2.new(0.5,0)
-        avatar.Position = UDim2.new(0.5,0,0,0)
-        avatar.BackgroundTransparency = 1
-        avatar.Image = Players:GetUserThumbnailAsync(lp.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
-
-        -- ----- COPY BUTTONS PER BATCH -----
+        -- ===== ASSET BUTTONS =====
         local total = #CURRENT_ASSETS
+        if total == 0 then return end
         local batchCount = math.ceil(total / BATCH_SIZE)
+
         for i = 1, batchCount do
             local s = (i-1)*BATCH_SIZE + 1
             local e = math.min(i*BATCH_SIZE, total)
 
-            -- text asset info
-            local infoText = ""
+            -- List asset info
             for x = s, e do
-                infoText ..= "Asset "..x.." ["..CURRENT_ASSETS[x].."]\n"
+                local lbl = Instance.new("TextLabel", assetPanel)
+                lbl.Size = UDim2.new(1,0,0,28)
+                lbl.Text = "Asset "..x.." ["..CURRENT_ASSETS[x].."]"
+                lbl.TextColor3 = TEXT_COLOR
+                lbl.BackgroundTransparency = 1
+                lbl.TextScaled = true
             end
-            local infoLabel = Instance.new("TextLabel", assetPanel)
-            infoLabel.Size = UDim2.new(1,0,0,20*(e-s+1))
-            infoLabel.Text = infoText
-            infoLabel.TextColor3 = TEXT_COLOR
-            infoLabel.BackgroundTransparency = 1
-            infoLabel.TextScaled = false
-            infoLabel.TextXAlignment = Enum.TextXAlignment.Left
-            infoLabel.TextYAlignment = Enum.TextYAlignment.Top
 
-            -- copy button
             local btn = Instance.new("TextButton", assetPanel)
             btn.Size = UDim2.new(1,0,0,36)
             btn.Text = "COPY "..i.." ("..s.." - "..e..")"
@@ -195,12 +191,11 @@ return function(parent)
         end
     end
 
+    local CURRENT_PLAYER = nil
     -- ----- BUILD PLAYER LIST -----
     local function rebuildPlayerList()
         for _,c in ipairs(plist:GetChildren()) do
-            if c:IsA("TextButton") then
-                c:Destroy()
-            end
+            if c:IsA("TextButton") then c:Destroy() end
         end
 
         local sortedPlayers = {}
@@ -221,6 +216,7 @@ return function(parent)
             b.MouseLeave:Connect(function() b.BackgroundColor3 = Color3.fromRGB(90,60,140) end)
 
             b.MouseButton1Click:Connect(function()
+                CURRENT_PLAYER = plr
                 CURRENT_ASSETS = getAssets(plr.UserId)
                 rebuildAssetButtons()
             end)
