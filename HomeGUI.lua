@@ -1,5 +1,5 @@
 -- =====================================================
--- RII HUB - HOME GUI
+-- RII HUB - HOME GUI MODULAR MULTI-FEATURE
 -- =====================================================
 
 local Players = game:GetService("Players")
@@ -100,17 +100,13 @@ panelContainer.Size = UDim2.new(1,-160,1,0)
 panelContainer.BackgroundTransparency = 1
 
 -- ================= TAB MANAGEMENT =================
--- Placeholder function untuk load fitur
 local function loadFeature(tabName, featureFunc)
-	-- Hide semua children di panelContainer
 	for _,c in ipairs(panelContainer:GetChildren()) do
 		c.Visible = false
 	end
-	-- Jalankan fitur, beri parent panelContainer
 	featureFunc(panelContainer)
 end
 
--- ================= SIDEBAR EXAMPLE BUTTON =================
 local function createSidebarButton(name, featureFunc)
 	local btn = Instance.new("TextButton", sidebar)
 	btn.Size = UDim2.new(1,-20,0,40)
@@ -125,10 +121,22 @@ local function createSidebarButton(name, featureFunc)
 	end)
 end
 
--- ================= EXAMPLE =================
--- nanti fitur Copy Ava akan di-load dari modul/script terpisah
--- createSidebarButton("Copy Ava", function(parent) end)
+-- ================= FEATURES TABLE =================
+-- Tambahkan semua fitur dengan raw GitHub URL
+-- Format: ["Nama Fitur"] = "RAW_URL"
+local FEATURES = {
+	["Copy Ava"] = "https://raw.githubusercontent.com/username/rii-hub/main/CopyAva.lua",
+	-- ["Nama Fitur Lain"] = "https://raw.githubusercontent.com/username/rii-hub/main/FiturLain.lua",
+}
 
--- ================= RETURN PANEL CONTAINER =================
--- jika kamu ingin modul fitur bisa mengakses panelContainer
-return panelContainer
+-- ================= LOAD FITUR OTOMATIS =================
+for name, url in pairs(FEATURES) do
+	local ok, featureFunc = pcall(function()
+		return loadstring(game:HttpGet(url))()
+	end)
+	if ok and featureFunc then
+		createSidebarButton(name, featureFunc)
+	else
+		warn("Gagal load fitur:", name, url)
+	end
+endreturn panelContainer
