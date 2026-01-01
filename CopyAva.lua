@@ -1,9 +1,6 @@
 -- =====================================================
--- RII HUB - FEATURE COPY AVA (FIXED)
--- Modular version
--- parent = panelContainer dari Home GUI
+-- RII HUB - FEATURE COPY AVA (FIX LAYOUT)
 -- =====================================================
-
 return function(parent)
     local Players = game:GetService("Players")
     local lp = Players.LocalPlayer
@@ -33,11 +30,17 @@ return function(parent)
         local ok, info = pcall(function()
             return Players:GetCharacterAppearanceInfoAsync(userId)
         end)
-        if ok and info and info.assets then
-            for _,v in ipairs(info.assets) do
-                if v.id then
-                    table.insert(result, {id = v.id, name = v.name or "Unknown", category = v.assetType or "Asset"})
-                end
+        if not ok or not info or not info.assets then
+            return result
+        end
+        -- Urutkan Tubuh > Pakaian > Aksesoris
+        local sortOrder = {["Body"]=1, ["Clothing"]=2, ["Accessory"]=3}
+        table.sort(info.assets, function(a,b)
+            return (sortOrder[a.category] or 99) < (sortOrder[b.category] or 99)
+        end)
+        for _,v in ipairs(info.assets) do
+            if v.id then
+                table.insert(result, {id=v.id, name=v.name, category=v.category})
             end
         end
         return result
@@ -49,7 +52,14 @@ return function(parent)
     copyPanel.BackgroundColor3 = PANEL_BG
     copyPanel.BackgroundTransparency = 0.05
     copyPanel.ScrollBarThickness = 6
+    copyPanel.CanvasSize = UDim2.new(0,0,0,0)
     Instance.new("UICorner", copyPanel)
+
+    local asLayout = Instance.new("UIListLayout", copyPanel)
+    asLayout.Padding = UDim.new(0,6)
+    asLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        copyPanel.CanvasSize = UDim2.new(0,0,0,asLayout.AbsoluteContentSize.Y + 10)
+    end)
 
     -- ----- SEARCH BOX -----
     local searchBox = Instance.new("TextBox", copyPanel)
@@ -73,17 +83,16 @@ return function(parent)
         plist.CanvasSize = UDim2.new(0,0,0,plLayout.AbsoluteContentSize.Y + 10)
     end)
 
-    -- ----- ASSET PANEL -----
-    local assetPanel = Instance.new("ScrollingFrame", copyPanel)
+    -- ================= ASSET PANEL =================
+    local assetPanel = Instance.new("Frame", copyPanel)
     assetPanel.Position = UDim2.new(0.4,10,0,10)
     assetPanel.Size = UDim2.new(0.6,-20,1,-20)
-    assetPanel.ScrollBarThickness = 6
     assetPanel.BackgroundTransparency = 1
 
-    local asLayout = Instance.new("UIListLayout", assetPanel)
-    asLayout.Padding = UDim.new(0,6)
-    asLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        assetPanel.CanvasSize = UDim2.new(0,0,0,asLayout.AbsoluteContentSize.Y + 10)
+    local assetLayout = Instance.new("UIListLayout", assetPanel)
+    assetLayout.Padding = UDim.new(0,6)
+    assetLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        assetPanel.Size = UDim2.new(0.6,-20,0,assetLayout.AbsoluteContentSize.Y)
     end)
 
     -- ----- NOTIF -----
@@ -107,70 +116,64 @@ return function(parent)
     -- ================= DATA =================
     local CURRENT_ASSETS = {}
     local BUTTON_STATES = {}
-    local AVATAR_IMAGE = nil
 
     local function rebuildAssetButtons()
         for _,c in ipairs(assetPanel:GetChildren()) do
-            if not c:IsA("UIListLayout") then c:Destroy() end
+            c:Destroy()
         end
         BUTTON_STATES = {}
 
-        if AVATAR_IMAGE then AVATAR_IMAGE:Destroy() end
-        -- tambahkan avatar di tengah atas
-        AVATAR_IMAGE = Instance.new("ImageLabel", assetPanel)
-        AVATAR_IMAGE.Size = UDim2.new(0,120,0,120)
-        AVATAR_IMAGE.Position = UDim2.new(0.5,0,0,10)
-        AVATAR_IMAGE.AnchorPoint = Vector2.new(0.5,0)
-        AVATAR_IMAGE.BackgroundTransparency = 1
-        AVATAR_IMAGE.Image = "rbxthumb://type=AvatarHeadShot&id="..CURRENT_ASSETS.playerId.."&w=420&h=420"
-        Instance.new("UICorner", AVATAR_IMAGE)
+        if #CURRENT_ASSETS == 0 then return end
 
-        -- tambah jarak bawah avatar
-        local currentY = 140
+        -- ----- AVATAR -----
+        local avatar = Instance.new("ImageLabel", assetPanel)
+        avatar.Size = UDim2.new(0,120,0,120)
+        avatar.Position = UDim2.new(0.5,0,0,0)
+        avatar.AnchorPoint = Vector2.new(0.5,0)
+        avatar.BackgroundTransparency = 1
+        avatar.Image = "rbxthumb://type=AvatarHeadShot&id="..lp.UserId.."&w=420&h=420"
+        Instance.new("UICorner", avatar)
 
-        local total = #CURRENT_ASSETS.assets
-        if total == 0 then return end
-
+        -- ----- ASSET BATCH -----
+        local total = #CURRENT_ASSETS
         local batchCount = math.ceil(total / BATCH_SIZE)
         for i = 1, batchCount do
             local s = (i-1)*BATCH_SIZE + 1
             local e = math.min(i*BATCH_SIZE, total)
 
-            -- buat label tiap asset
+            -- Asset Labels
             for x = s, e do
-                local info = CURRENT_ASSETS.assets[x]
+                local info = CURRENT_ASSETS[x]
                 local lbl = Instance.new("TextLabel", assetPanel)
-                lbl.Size = UDim2.new(1,0,0,24)
-                lbl.Position = UDim2.new(0,0,0,currentY)
+                lbl.Size = UDim2.new(1,0,0,28)
                 lbl.Text = info.name.." ["..info.id.."]"
-                lbl.BackgroundTransparency = 1
                 lbl.TextColor3 = TEXT_COLOR
-                lbl.TextScaled = false
+                lbl.BackgroundTransparency = 1
                 lbl.TextXAlignment = Enum.TextXAlignment.Left
-                currentY = currentY + 26
+                lbl.Font = Enum.Font.Gotham
+                lbl.TextScaled = true
             end
 
-            -- buat tombol copy batch
+            -- Copy Button
             local btn = Instance.new("TextButton", assetPanel)
             btn.Size = UDim2.new(1,0,0,36)
-            btn.Position = UDim2.new(0,0,0,currentY)
             btn.Text = "COPY "..i.." ("..s.." - "..e..")"
             btn.BackgroundColor3 = COPY_COLORS[1]
             btn.TextColor3 = TEXT_COLOR
             btn.TextScaled = true
             Instance.new("UICorner", btn)
-            BUTTON_STATES[btn] = 1
 
+            BUTTON_STATES[btn] = 1
             btn.MouseEnter:Connect(function() btn.BackgroundColor3 = BTN_HOVER end)
             btn.MouseLeave:Connect(function() 
-                local idx = BUTTON_STATES[btn]
+                local idx = BUTTON_STATES[btn] 
                 btn.BackgroundColor3 = COPY_COLORS[idx]
             end)
 
             btn.MouseButton1Click:Connect(function()
                 local text = "hat"
                 for x = s, e do
-                    text ..= " "..CURRENT_ASSETS.assets[x].id
+                    text ..= " " .. CURRENT_ASSETS[x].id
                 end
                 copyToClipboard(text)
                 showNotif("COPIED "..s.." - "..e)
@@ -180,12 +183,10 @@ return function(parent)
                 btn.BackgroundColor3 = COPY_COLORS[idx]
                 BUTTON_STATES[btn] = idx
             end)
-
-            currentY = currentY + 46
         end
     end
 
-    -- ----- BUILD PLAYER LIST -----
+    -- ================= PLAYER LIST =================
     local function rebuildPlayerList()
         for _,c in ipairs(plist:GetChildren()) do
             if c:IsA("TextButton") then c:Destroy() end
@@ -209,8 +210,7 @@ return function(parent)
             b.MouseLeave:Connect(function() b.BackgroundColor3 = Color3.fromRGB(90,60,140) end)
 
             b.MouseButton1Click:Connect(function()
-                local assets = getAssets(plr.UserId)
-                CURRENT_ASSETS = {playerId = plr.UserId, assets = assets}
+                CURRENT_ASSETS = getAssets(plr.UserId)
                 rebuildAssetButtons()
             end)
         end
