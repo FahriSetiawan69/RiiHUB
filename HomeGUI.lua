@@ -1,9 +1,8 @@
 -- =====================================================
--- RII HUB - HOME GUI MODULAR MULTI-FEATURE
+-- RII HUB - HOME GUI MODULAR MULTI-FEATURE (Loadstring Ready)
 -- =====================================================
 
 return function()
-
 	local Players = game:GetService("Players")
 	local lp = Players.LocalPlayer
 
@@ -17,13 +16,13 @@ return function()
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "RiiHubGUI"
 	gui.ResetOnSpawn = false
-	gui.Parent = lp:WaitForChild("PlayerGui")
+	gui.Parent = lp:WaitForChild("PlayerGui") -- pastikan PlayerGui ready
 
 	local frame = Instance.new("Frame", gui)
 	frame.Size = UDim2.new(0,620,0,500)
 	frame.Position = UDim2.new(0.5,-310,0.5,-250)
 	frame.BackgroundColor3 = THEME_BG
-	frame.BackgroundTransparency = 0.1
+	frame.BackgroundTransparency = 0.05 -- biar terlihat
 	frame.Active = true
 	frame.Draggable = true
 	Instance.new("UICorner", frame)
@@ -81,7 +80,7 @@ return function()
 	local sidebar = Instance.new("Frame", content)
 	sidebar.Size = UDim2.new(0,160,1,0)
 	sidebar.BackgroundColor3 = SIDEBAR_BG
-	sidebar.BackgroundTransparency = 0.1
+	sidebar.BackgroundTransparency = 0.05
 	Instance.new("UICorner", sidebar)
 
 	local layout = Instance.new("UIListLayout", sidebar)
@@ -99,7 +98,7 @@ return function()
 		for _,v in ipairs(panelContainer:GetChildren()) do
 			v:Destroy()
 		end
-		featureFunc(panelContainer)
+		pcall(function() featureFunc(panelContainer) end)
 	end
 
 	local function addButton(name, func)
@@ -131,5 +130,4 @@ return function()
 			warn("Gagal load fitur:", name)
 		end
 	end
-
 end
