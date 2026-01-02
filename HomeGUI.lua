@@ -1,5 +1,5 @@
 -- =====================================================
--- RII HUB - HOME GUI (RED THEME + ANIMATION)
+-- RIIHUB - HOME GUI (RED THEME + FLOATING BUTTON)
 -- =====================================================
 
 return function()
@@ -16,10 +16,25 @@ return function()
     gui.ResetOnSpawn = false
     gui.Parent = playerGui
 
+    -- ================= FLOATING BUTTON =================
+    local floatBtn = Instance.new("TextButton", gui)
+    floatBtn.Size = UDim2.new(0,60,0,60)
+    floatBtn.Position = UDim2.new(0,20,0.5,-30)
+    floatBtn.Text = "R"
+    floatBtn.Font = Enum.Font.GothamBold
+    floatBtn.TextSize = 24
+    floatBtn.TextColor3 = Color3.new(1,1,1)
+    floatBtn.BackgroundColor3 = Color3.fromRGB(170,40,40)
+    floatBtn.Visible = false
+    floatBtn.Active = true
+    floatBtn.Draggable = true
+    Instance.new("UICorner", floatBtn).CornerRadius = UDim.new(1,0)
+
+    -- ================= MAIN FRAME =================
     local frame = Instance.new("Frame", gui)
     frame.Size = UDim2.new(0,620,0,500)
     frame.Position = UDim2.new(0.5,-310,0.5,-250)
-    frame.BackgroundColor3 = Color3.fromRGB(120,20,25) -- merah gelap
+    frame.BackgroundColor3 = Color3.fromRGB(120,20,20)
     frame.BackgroundTransparency = 0.12
     frame.Active = true
     frame.Draggable = true
@@ -29,48 +44,41 @@ return function()
     local originalPos = frame.Position
 
     -- ================= TOP BAR =================
-    local topBar = Instance.new("Frame", frame)
-    topBar.Size = UDim2.new(1,0,0,36)
-    topBar.BackgroundColor3 = Color3.fromRGB(0,0,0)
-    topBar.BackgroundTransparency = 0.15
-    Instance.new("UICorner", topBar).CornerRadius = UDim.new(0,10)
+    local top = Instance.new("Frame", frame)
+    top.Size = UDim2.new(1,0,0,36)
+    top.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    top.BackgroundTransparency = 0.1
 
     -- ================= TITLE =================
-    local title = Instance.new("TextLabel", topBar)
+    local title = Instance.new("TextLabel", top)
     title.Size = UDim2.new(1,-120,1,0)
-    title.Position = UDim2.new(0,12,0,0)
+    title.Position = UDim2.new(0,10,0,0)
     title.Text = "RiiHUB"
-    title.TextColor3 = Color3.fromRGB(255,255,255)
-    title.BackgroundTransparency = 1
-    title.TextXAlignment = Enum.TextXAlignment.Left
     title.Font = Enum.Font.GothamBold
     title.TextSize = 16
+    title.TextXAlignment = Left
+    title.TextColor3 = Color3.new(1,1,1)
+    title.BackgroundTransparency = 1
 
     -- ================= CLOSE =================
-    local close = Instance.new("TextButton", topBar)
-    close.Size = UDim2.new(0,36,0,24)
-    close.Position = UDim2.new(1,-40,0,6)
+    local close = Instance.new("TextButton", top)
+    close.Size = UDim2.new(0,36,0,36)
+    close.Position = UDim2.new(1,-36,0,0)
     close.Text = "✕"
     close.Font = Enum.Font.GothamBold
-    close.TextSize = 14
-    close.BackgroundColor3 = Color3.fromRGB(170,40,40)
+    close.TextSize = 18
     close.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", close)
-
-    close.MouseButton1Click:Connect(function()
-        gui:Destroy()
-    end)
+    close.BackgroundColor3 = Color3.fromRGB(150,30,30)
 
     -- ================= MINIMIZE =================
-    local minimize = Instance.new("TextButton", topBar)
-    minimize.Size = UDim2.new(0,28,0,24)
-    minimize.Position = UDim2.new(1,-76,0,6)
+    local minimize = Instance.new("TextButton", top)
+    minimize.Size = UDim2.new(0,36,0,36)
+    minimize.Position = UDim2.new(1,-72,0,0)
     minimize.Text = "–"
     minimize.Font = Enum.Font.GothamBold
-    minimize.TextSize = 18
-    minimize.BackgroundColor3 = Color3.fromRGB(90,20,20)
+    minimize.TextSize = 22
     minimize.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", minimize)
+    minimize.BackgroundColor3 = Color3.fromRGB(110,30,30)
 
     -- ================= CONTENT =================
     local content = Instance.new("Frame", frame)
@@ -78,45 +86,16 @@ return function()
     content.Size = UDim2.new(1,0,1,-36)
     content.BackgroundTransparency = 1
 
-    -- ================= ANIMATION =================
-    local isMinimized = false
-    local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-
-    minimize.MouseButton1Click:Connect(function()
-        if not isMinimized then
-            isMinimized = true
-            content.Visible = false
-
-            TweenService:Create(frame, tweenInfo, {
-                Size = UDim2.new(0,220,0,36),
-                Position = UDim2.new(
-                    frame.Position.X.Scale,
-                    frame.Position.X.Offset,
-                    frame.Position.Y.Scale,
-                    frame.Position.Y.Offset
-                )
-            }):Play()
-        else
-            isMinimized = false
-            content.Visible = true
-
-            TweenService:Create(frame, tweenInfo, {
-                Size = originalSize,
-                Position = originalPos
-            }):Play()
-        end
-    end)
-
     -- ================= SIDEBAR =================
     local sidebar = Instance.new("Frame", content)
     sidebar.Size = UDim2.new(0,160,1,0)
-    sidebar.BackgroundColor3 = Color3.fromRGB(140,30,35)
-    sidebar.BackgroundTransparency = 0.1
+    sidebar.BackgroundColor3 = Color3.fromRGB(140,30,30)
+    sidebar.BackgroundTransparency = 0.15
     Instance.new("UICorner", sidebar)
 
-    local layout = Instance.new("UIListLayout", sidebar)
-    layout.Padding = UDim.new(0,8)
-    layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    local list = Instance.new("UIListLayout", sidebar)
+    list.Padding = UDim.new(0,8)
+    list.HorizontalAlignment = Center
 
     -- ================= PANEL =================
     local panelContainer = Instance.new("Frame", content)
@@ -125,34 +104,25 @@ return function()
     panelContainer.BackgroundTransparency = 1
 
     -- ================= FEATURE LOADER =================
-    local function loadFeature(featureFunc)
+    local function loadFeature(func)
         for _,v in ipairs(panelContainer:GetChildren()) do
             v:Destroy()
         end
-        pcall(function()
-            featureFunc(panelContainer)
-        end)
+        task.spawn(func, panelContainer)
     end
 
-    local function addButton(name, featureFunc)
+    local function addButton(name, func)
         local btn = Instance.new("TextButton", sidebar)
-        btn.Size = UDim2.new(1,-20,0,40)
+        btn.Size = UDim2.new(1,-20,0,38)
         btn.Text = name
         btn.Font = Enum.Font.Gotham
         btn.TextSize = 14
         btn.TextColor3 = Color3.new(1,1,1)
-        btn.BackgroundColor3 = Color3.fromRGB(160,40,45)
+        btn.BackgroundColor3 = Color3.fromRGB(160,40,40)
         Instance.new("UICorner", btn)
 
-        btn.MouseEnter:Connect(function()
-            btn.BackgroundColor3 = Color3.fromRGB(190,50,55)
-        end)
-        btn.MouseLeave:Connect(function()
-            btn.BackgroundColor3 = Color3.fromRGB(160,40,45)
-        end)
-
         btn.MouseButton1Click:Connect(function()
-            loadFeature(featureFunc)
+            loadFeature(func)
         end)
     end
 
@@ -161,14 +131,34 @@ return function()
         ["Copy Ava"] = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/CopyAva.lua"
     }
 
-    for name, url in pairs(FEATURES) do
-        local ok, featureFunc = pcall(function()
+    for name,url in pairs(FEATURES) do
+        local ok,func = pcall(function()
             return loadstring(game:HttpGet(url))()
         end)
-        if ok and type(featureFunc) == "function" then
-            addButton(name, featureFunc)
-        else
-            warn("Gagal load fitur:", name)
+        if ok and type(func) == "function" then
+            addButton(name, func)
         end
     end
+
+    -- ================= ANIMATION =================
+    local function tween(obj, goal, t)
+        TweenService:Create(obj, TweenInfo.new(t, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), goal):Play()
+    end
+
+    minimize.MouseButton1Click:Connect(function()
+        tween(frame, {Size = UDim2.new(0,0,0,0)}, 0.25)
+        task.wait(0.25)
+        frame.Visible = false
+        floatBtn.Visible = true
+    end)
+
+    floatBtn.MouseButton1Click:Connect(function()
+        frame.Visible = true
+        tween(frame, {Size = originalSize, Position = originalPos}, 0.3)
+        floatBtn.Visible = false
+    end)
+
+    close.MouseButton1Click:Connect(function()
+        gui:Destroy()
+    end)
 end
