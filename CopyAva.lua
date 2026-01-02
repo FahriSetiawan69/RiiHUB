@@ -1,5 +1,5 @@
 -- =========================================
--- COPY AVATAR FEATURE (TRANSPARENT VERSION)
+-- COPY AVATAR FEATURE (TRANSPARENT FIX)
 -- =========================================
 
 return function(parent)
@@ -8,11 +8,11 @@ return function(parent)
     parent:ClearAllChildren()
 
     local COPY_COLORS = {
-        Color3.fromRGB(140,90,255),
-        Color3.fromRGB(90,180,255),
-        Color3.fromRGB(120,220,160),
-        Color3.fromRGB(255,180,90),
-        Color3.fromRGB(255,120,120),
+        Color3.fromRGB(255,80,80),
+        Color3.fromRGB(255,140,80),
+        Color3.fromRGB(255,200,80),
+        Color3.fromRGB(255,120,160),
+        Color3.fromRGB(200,80,255),
     }
 
     local function copy(txt)
@@ -21,7 +21,7 @@ return function(parent)
         end
     end
 
-    -- ROOT (TRANSPARENT)
+    -- ROOT (TRANSPARENT, NO OVERLAY)
     local root = Instance.new("Frame", parent)
     root.Size = UDim2.new(1,0,1,0)
     root.BackgroundTransparency = 1
@@ -46,16 +46,17 @@ return function(parent)
     right.Size = UDim2.new(1,-230,1,-20)
     right.BackgroundTransparency = 1
 
-    -- AVATAR
+    -- AVATAR (2D)
     local avatar = Instance.new("ImageLabel", right)
-    avatar.Size = UDim2.new(0,150,0,150)
-    avatar.Position = UDim2.new(0.5,-75,0,0)
+    avatar.Size = UDim2.new(0,120,0,120)
+    avatar.Position = UDim2.new(0.5,-60,0,0)
     avatar.BackgroundTransparency = 1
+    avatar.ScaleType = Enum.ScaleType.Fit
 
     -- ASSET LIST
     local assetList = Instance.new("ScrollingFrame", right)
-    assetList.Position = UDim2.new(0,0,0,160)
-    assetList.Size = UDim2.new(1,0,1,-160)
+    assetList.Position = UDim2.new(0,0,0,130)
+    assetList.Size = UDim2.new(1,0,1,-130)
     assetList.ScrollBarThickness = 6
     assetList.BackgroundTransparency = 1
 
@@ -74,7 +75,7 @@ return function(parent)
         end
     end
 
-    -- SHOW PLAYER
+    -- SHOW PLAYER ASSETS
     local function showAssets(player)
         clearAssets()
 
@@ -102,12 +103,14 @@ return function(parent)
                 local label = Instance.new("TextLabel", box)
                 label.Size = UDim2.new(1,0,0,24)
                 label.Position = UDim2.new(0,0,0,y)
+                label.BackgroundTransparency = 0.2
+                label.BackgroundColor3 = Color3.fromRGB(0,0,0)
                 label.TextXAlignment = Enum.TextXAlignment.Left
                 label.Text = a.name.." ["..a.id.."]"
                 label.TextColor3 = Color3.new(1,1,1)
-                label.BackgroundTransparency = 1
-                label.Font = Enum.Font.Gotham
                 label.TextSize = 13
+                label.Font = Enum.Font.Gotham
+                Instance.new("UICorner", label)
                 y += 26
             end
 
@@ -140,7 +143,9 @@ return function(parent)
 
         for _,asset in ipairs(info.assets) do
             table.insert(batch, asset)
-            if #batch == 4 then flush() end
+            if #batch == 4 then
+                flush()
+            end
         end
         flush()
     end
@@ -148,7 +153,9 @@ return function(parent)
     -- BUILD PLAYER LIST
     local function buildPlayers()
         for _,v in ipairs(plist:GetChildren()) do
-            if not v:IsA("UIListLayout") then v:Destroy() end
+            if not v:IsA("UIListLayout") then
+                v:Destroy()
+            end
         end
 
         local players = Players:GetPlayers()
@@ -162,6 +169,7 @@ return function(parent)
             btn.Text = plr.Name
             btn.TextColor3 = Color3.new(1,1,1)
             btn.BackgroundTransparency = 0.2
+            btn.BackgroundColor3 = Color3.fromRGB(0,0,0)
             btn.Font = Enum.Font.Gotham
             btn.TextSize = 14
             Instance.new("UICorner", btn)
