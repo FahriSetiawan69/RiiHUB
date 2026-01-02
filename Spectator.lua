@@ -1,7 +1,6 @@
 -- =========================================
--- SPECTATOR FEATURE (Standalone & Modular)
+-- SPECTATOR FEATURE (Home GUI Ready)
 -- =========================================
-
 return function(parent)
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -10,169 +9,156 @@ return function(parent)
 
     parent:ClearAllChildren()
 
-    -- ================= ROOT FRAME =================
-    local root = Instance.new("Frame", parent)
-    root.Size = UDim2.new(1,0,1,0)
-    root.BackgroundTransparency = 1
-
-    -- ================= HUD =================
-    local hud = Instance.new("Frame", root)
-    hud.Size = UDim2.new(0,220,0,50)
-    hud.Position = UDim2.new(0,10,1,-60)
-    hud.BackgroundTransparency = 0.5
-    hud.BackgroundColor3 = Color3.fromRGB(0,0,0)
-    hud.Visible = false
-    Instance.new("UICorner", hud)
-
-    local nameLabel = Instance.new("TextLabel", hud)
-    nameLabel.Size = UDim2.new(0.6,0,1,0)
-    nameLabel.Position = UDim2.new(0,0,0,0)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.TextColor3 = Color3.new(1,1,1)
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.TextScaled = true
-    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-
-    local leftBtn = Instance.new("TextButton", hud)
-    leftBtn.Size = UDim2.new(0.2,0,1,0)
-    leftBtn.Position = UDim2.new(0.6,0,0,0)
-    leftBtn.Text = "<"
-    leftBtn.TextScaled = true
-    leftBtn.Font = Enum.Font.GothamBold
-    leftBtn.BackgroundColor3 = Color3.fromRGB(70,70,70)
-    leftBtn.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", leftBtn)
-
-    local rightBtn = Instance.new("TextButton", hud)
-    rightBtn.Size = UDim2.new(0.2,0,1,0)
-    rightBtn.Position = UDim2.new(0.8,0,0,0)
-    rightBtn.Text = ">"
-    rightBtn.TextScaled = true
-    rightBtn.Font = Enum.Font.GothamBold
-    rightBtn.BackgroundColor3 = Color3.fromRGB(70,70,70)
-    rightBtn.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", rightBtn)
-
     -- ================= TOGGLE =================
-    local toggle = false
+    local toggle = Instance.new("TextButton", parent)
+    toggle.Size = UDim2.new(0,120,0,40)
+    toggle.Position = UDim2.new(0,10,0,10)
+    toggle.Text = "Spectator OFF"
+    toggle.BackgroundColor3 = Color3.fromRGB(90,60,140)
+    toggle.TextColor3 = Color3.fromRGB(255,255,255)
+    toggle.Font = Enum.Font.GothamBold
+    toggle.TextSize = 14
+    Instance.new("UICorner", toggle)
 
-    -- ================= DATA =================
-    local currentIndex = 1
-    local targetPlayers = {}
+    local isOn = false
+    local currentTargetIndex = 1
+    local hud
 
-    local function updateTargetPlayers()
-        targetPlayers = {}
-        for _,p in ipairs(Players:GetPlayers()) do
-            if p ~= lp then
-                table.insert(targetPlayers,p)
-            end
-        end
-        table.sort(targetPlayers,function(a,b)
-            return a.Name:lower() < b.Name:lower()
-        end)
-        if currentIndex > #targetPlayers then currentIndex = 1 end
+    local function createHUD()
+        hud = Instance.new("Frame", lp.PlayerGui)
+        hud.Name = "SpectatorHUD"
+        hud.Size = UDim2.new(0,200,0,50)
+        hud.Position = UDim2.new(0,10,1,-60)
+        hud.BackgroundTransparency = 0.3
+        hud.BackgroundColor3 = Color3.fromRGB(30,30,30)
+        hud.BorderSizePixel = 0
+        Instance.new("UICorner", hud)
+
+        local nameLabel = Instance.new("TextLabel", hud)
+        nameLabel.Size = UDim2.new(1,0,0.5,0)
+        nameLabel.Position = UDim2.new(0,0,0,0)
+        nameLabel.TextColor3 = Color3.new(1,1,1)
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Font = Enum.Font.GothamBold
+        nameLabel.TextScaled = true
+        nameLabel.Text = ""
+
+        local navFrame = Instance.new("Frame", hud)
+        navFrame.Size = UDim2.new(1,0,0.5,0)
+        navFrame.Position = UDim2.new(0,0,0.5,0)
+        navFrame.BackgroundTransparency = 1
+
+        local leftBtn = Instance.new("TextButton", navFrame)
+        leftBtn.Size = UDim2.new(0,50,1,0)
+        leftBtn.Position = UDim2.new(0,0,0,0)
+        leftBtn.Text = "<"
+        leftBtn.Font = Enum.Font.GothamBold
+        leftBtn.TextSize = 18
+        leftBtn.TextColor3 = Color3.new(1,1,1)
+        leftBtn.BackgroundTransparency = 0.3
+        Instance.new("UICorner", leftBtn)
+
+        local rightBtn = Instance.new("TextButton", navFrame)
+        rightBtn.Size = UDim2.new(0,50,1,0)
+        rightBtn.Position = UDim2.new(1,-50,0,0)
+        rightBtn.Text = ">"
+        rightBtn.Font = Enum.Font.GothamBold
+        rightBtn.TextSize = 18
+        rightBtn.TextColor3 = Color3.new(1,1,1)
+        rightBtn.BackgroundTransparency = 0.3
+        Instance.new("UICorner", rightBtn)
+
+        return {
+            frame = hud,
+            nameLabel = nameLabel,
+            left = leftBtn,
+            right = rightBtn
+        }
     end
 
-    local function updateHUD()
-        if #targetPlayers == 0 then
-            nameLabel.Text = "No Players"
-        else
-            local target = targetPlayers[currentIndex]
-            nameLabel.Text = target.Name
-        end
-    end
-
-    -- ================= CAMERA CONTROL =================
-    local cam = workspace.CurrentCamera
+    local targetPlayer = nil
+    local camConnection
     local dragging = false
     local lastPos = Vector2.new(0,0)
-    local sensitivity = 0.2
-    local rotX, rotY = 0,0
 
-    local function startDrag(pos)
-        dragging = true
-        lastPos = pos
+    local function updateTarget()
+        local players = Players:GetPlayers()
+        if #players == 0 then
+            targetPlayer = nil
+            return
+        end
+        currentTargetIndex = math.clamp(currentTargetIndex, 1, #players)
+        targetPlayer = players[currentTargetIndex]
+        hud.nameLabel.Text = targetPlayer.Name
     end
 
-    local function endDrag()
-        dragging = false
+    -- ================= CAMERA =================
+    local function startSpectator()
+        if not hud then
+            hud = createHUD()
+        end
+        hud.frame.Visible = true
+        updateTarget()
+
+        -- Left/right navigation
+        hud.left.MouseButton1Click:Connect(function()
+            currentTargetIndex -= 1
+            updateTarget()
+        end)
+        hud.right.MouseButton1Click:Connect(function()
+            currentTargetIndex += 1
+            updateTarget()
+        end)
+
+        camConnection = RunService.RenderStepped:Connect(function()
+            if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = targetPlayer.Character.HumanoidRootPart
+                local cam = workspace.CurrentCamera
+                local offset = Vector3.new(0,2,6)
+                cam.CFrame = CFrame.new(cam.CFrame.Position:Lerp(hrp.Position + offset,0.15), hrp.Position)
+            end
+        end)
+
+        -- Mobile drag camera
+        UserInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                lastPos = input.Position
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if dragging and input.UserInputType == Enum.UserInputType.Touch then
+                local delta = input.Position - lastPos
+                local cam = workspace.CurrentCamera
+                cam.CFrame *= CFrame.Angles(0, -delta.X/200, 0)
+                lastPos = input.Position
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch then
+                dragging = false
+            end
+        end)
     end
 
-    local function drag(pos)
-        if not dragging then return end
-        local delta = pos - lastPos
-        lastPos = pos
-        rotX = rotX - delta.Y * sensitivity
-        rotY = rotY - delta.X * sensitivity
-        rotX = math.clamp(rotX,-80,80)
+    local function stopSpectator()
+        if hud then
+            hud.frame.Visible = false
+        end
+        if camConnection then
+            camConnection:Disconnect()
+            camConnection = nil
+        end
+        workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
     end
 
-    -- ================= SWITCH PLAYER =================
-    local function switchLeft()
-        if #targetPlayers == 0 then return end
-        currentIndex -= 1
-        if currentIndex < 1 then currentIndex = #targetPlayers end
-        updateHUD()
-    end
-
-    local function switchRight()
-        if #targetPlayers == 0 then return end
-        currentIndex += 1
-        if currentIndex > #targetPlayers then currentIndex = 1 end
-        updateHUD()
-    end
-
-    leftBtn.MouseButton1Click:Connect(switchLeft)
-    rightBtn.MouseButton1Click:Connect(switchRight)
-
-    -- ================= UPDATE CAMERA =================
-    RunService.RenderStepped:Connect(function()
-        if not toggle then return end
-        if #targetPlayers == 0 then return end
-        local target = targetPlayers[currentIndex]
-        if not target.Character or not target.Character:FindFirstChild("HumanoidRootPart") then return end
-        local hrp = target.Character.HumanoidRootPart
-        local camPos = hrp.Position + Vector3.new(0,2,0)
-        local cf = CFrame.new(camPos) * CFrame.Angles(math.rad(rotX),math.rad(rotY),0)
-        cam.CFrame = cf
-    end)
-
-    -- ================= INPUT =================
-    UserInputService.InputBegan:Connect(function(input)
-        if not toggle then return end
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-            startDrag(input.Position)
+    toggle.MouseButton1Click:Connect(function()
+        isOn = not isOn
+        toggle.Text = isOn and "Spectator ON" or "Spectator OFF"
+        if isOn then
+            startSpectator()
+        else
+            stopSpectator()
         end
     end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if not toggle then return end
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
-            drag(input.Position)
-        end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
-            endDrag()
-        end
-    end)
-
-    -- ================= TOGGLE FUNCTION =================
-    local function setToggle(state)
-        toggle = state
-        hud.Visible = state
-        updateTargetPlayers()
-        updateHUD()
-        rotX, rotY = 0,0
-    end
-
-    -- ================= RETURN MODULE =================
-    return {
-        setToggle = setToggle, -- call module:setToggle(true/false)
-        switchLeft = switchLeft,
-        switchRight = switchRight,
-        getHUD = function() return hud end
-    }
 end
-
