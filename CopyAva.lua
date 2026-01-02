@@ -1,5 +1,5 @@
 -- =========================================
--- COPY AVATAR FEATURE (FINAL FIX)
+-- COPY AVATAR FEATURE (TRANSPARENT VERSION)
 -- =========================================
 
 return function(parent)
@@ -21,11 +21,10 @@ return function(parent)
         end
     end
 
-    -- ROOT
+    -- ROOT (TRANSPARENT)
     local root = Instance.new("Frame", parent)
     root.Size = UDim2.new(1,0,1,0)
-    root.BackgroundColor3 = Color3.fromRGB(55,35,95)
-    Instance.new("UICorner", root)
+    root.BackgroundTransparency = 1
 
     -- PLAYER LIST
     local plist = Instance.new("ScrollingFrame", root)
@@ -47,7 +46,7 @@ return function(parent)
     right.Size = UDim2.new(1,-230,1,-20)
     right.BackgroundTransparency = 1
 
-    -- AVATAR (2D)
+    -- AVATAR
     local avatar = Instance.new("ImageLabel", right)
     avatar.Size = UDim2.new(0,150,0,150)
     avatar.Position = UDim2.new(0.5,-75,0,0)
@@ -92,8 +91,6 @@ return function(parent)
 
         local function flush()
             if #batch == 0 then return end
-
-            -- 🔒 BEKUKAN DATA (INI FIX UTAMANYA)
             local frozen = table.clone(batch)
 
             local box = Instance.new("Frame", assetList)
@@ -108,10 +105,9 @@ return function(parent)
                 label.TextXAlignment = Enum.TextXAlignment.Left
                 label.Text = a.name.." ["..a.id.."]"
                 label.TextColor3 = Color3.new(1,1,1)
-                label.BackgroundColor3 = Color3.fromRGB(75,55,120)
-                label.TextSize = 13
+                label.BackgroundTransparency = 1
                 label.Font = Enum.Font.Gotham
-                Instance.new("UICorner", label)
+                label.TextSize = 13
                 y += 26
             end
 
@@ -144,9 +140,7 @@ return function(parent)
 
         for _,asset in ipairs(info.assets) do
             table.insert(batch, asset)
-            if #batch == 4 then
-                flush()
-            end
+            if #batch == 4 then flush() end
         end
         flush()
     end
@@ -154,9 +148,7 @@ return function(parent)
     -- BUILD PLAYER LIST
     local function buildPlayers()
         for _,v in ipairs(plist:GetChildren()) do
-            if not v:IsA("UIListLayout") then
-                v:Destroy()
-            end
+            if not v:IsA("UIListLayout") then v:Destroy() end
         end
 
         local players = Players:GetPlayers()
@@ -169,7 +161,7 @@ return function(parent)
             btn.Size = UDim2.new(1,0,0,32)
             btn.Text = plr.Name
             btn.TextColor3 = Color3.new(1,1,1)
-            btn.BackgroundColor3 = Color3.fromRGB(90,65,150)
+            btn.BackgroundTransparency = 0.2
             btn.Font = Enum.Font.Gotham
             btn.TextSize = 14
             Instance.new("UICorner", btn)
