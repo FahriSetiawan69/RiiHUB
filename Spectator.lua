@@ -1,5 +1,5 @@
 -- =========================================
--- RII HUB - SPECTATOR FEATURE (HOME GUI COMPATIBLE)
+-- RII HUB - SPECTATOR FEATURE FIXED
 -- =========================================
 
 return function(parent)
@@ -10,7 +10,7 @@ return function(parent)
 
     parent:ClearAllChildren()
 
-    -- ================= ROOT PANEL =================
+    -- ================= ROOT =================
     local root = Instance.new("Frame", parent)
     root.Size = UDim2.new(1,0,1,0)
     root.BackgroundTransparency = 1
@@ -18,9 +18,9 @@ return function(parent)
     -- ================= HUD =================
     local hud = Instance.new("Frame")
     hud.Size = UDim2.new(0,220,0,60)
-    hud.Position = UDim2.new(0,10,1,-70) -- pojok kiri bawah
+    hud.Position = UDim2.new(0,10,1,-70)
     hud.BackgroundTransparency = 1
-    hud.ZIndex = 10
+    hud.Visible = false -- awalnya hidden
 
     local nameLabel = Instance.new("TextLabel", hud)
     nameLabel.Size = UDim2.new(0,180,0,30)
@@ -51,7 +51,7 @@ return function(parent)
     rightArrow.TextColor3 = Color3.new(1,1,1)
     Instance.new("UICorner", rightArrow)
 
-    hud.Parent = game:GetService("CoreGui") -- floating HUD, tetap di screen
+    hud.Parent = game:GetService("CoreGui")
 
     -- ================= VARIABLES =================
     local spectatorOn = false
@@ -71,7 +71,7 @@ return function(parent)
     local function spectatePlayer(player)
         spectatingPlayer = player
         updateHUD()
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        if spectatorOn and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             cam.CameraType = Enum.CameraType.Scriptable
             cam.CFrame = player.Character.HumanoidRootPart.CFrame * CFrame.new(0,3,6)
         end
@@ -103,10 +103,9 @@ return function(parent)
         table.sort(playerList,function(a,b)
             return a.Name:lower() < b.Name:lower()
         end)
-        if #playerList > 0 then
-            currentIndex = 1
-            spectatePlayer(playerList[currentIndex])
-        end
+        currentIndex = 1
+        spectatingPlayer = nil
+        updateHUD()
     end
 
     rebuildPlayerList()
@@ -119,14 +118,14 @@ return function(parent)
     local sensitivity = 0.2
 
     UserInputService.InputBegan:Connect(function(input,gp)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if spectatorOn and input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             lastPos = input.Position
         end
     end)
 
     UserInputService.InputChanged:Connect(function(input,gp)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        if spectatorOn and dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
             if spectatingPlayer and spectatingPlayer.Character and spectatingPlayer.Character:FindFirstChild("HumanoidRootPart") then
                 local delta = input.Position - lastPos
                 local hrp = spectatingPlayer.Character.HumanoidRootPart
@@ -139,7 +138,7 @@ return function(parent)
     end)
 
     UserInputService.InputEnded:Connect(function(input,gp)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if spectatorOn and input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = false
         end
     end)
@@ -157,10 +156,16 @@ return function(parent)
         spectatorOn = not spectatorOn
         hud.Visible = spectatorOn
         toggle.Text = spectatorOn and "Spectator ON" or "Spectator OFF"
-        if not spectatorOn then
+
+        if spectatorOn then
+            -- Aktifkan kamera ke player pertama
+            if #playerList > 0 then
+                currentIndex = currentIndex > #playerList and 1 or currentIndex
+                spectatePlayer(playerList[currentIndex])
+            end
+        else
+            -- Matikan kamera
             cam.CameraType = Enum.CameraType.Custom
-        elseif spectatingPlayer then
-            cam.CameraType = Enum.CameraType.Scriptable
         end
     end)
 end
