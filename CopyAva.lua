@@ -1,24 +1,22 @@
 -- =====================================================
--- RII HUB - COPY AVATAR (FINAL MODULAR)
+-- RII HUB - COPY AVATAR (MODULAR FINAL)
 -- =====================================================
 
 return function(parent)
     local Players = game:GetService("Players")
-    local ThumbnailService = game:GetService("ThumbnailService")
 
     parent:ClearAllChildren()
 
-    -- ================= COLORS =================
+    -- ================= THEME =================
     local BG = Color3.fromRGB(55,35,95)
-    local TEXT = Color3.new(1,1,1)
-
-    local COPY_COLORS = {
-        Color3.fromRGB(130,90,255),
-        Color3.fromRGB(90,170,255),
-        Color3.fromRGB(120,220,170),
-        Color3.fromRGB(255,180,90),
-        Color3.fromRGB(255,120,180),
+    local BTN_COLORS = {
+        Color3.fromRGB(120,80,255),
+        Color3.fromRGB(150,100,255),
+        Color3.fromRGB(180,120,255),
+        Color3.fromRGB(210,150,255),
+        Color3.fromRGB(240,180,255),
     }
+    local TEXT = Color3.new(1,1,1)
 
     -- ================= ROOT =================
     local root = Instance.new("Frame", parent)
@@ -35,6 +33,7 @@ return function(parent)
 
     local plLayout = Instance.new("UIListLayout", plist)
     plLayout.Padding = UDim.new(0,6)
+
     plLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         plist.CanvasSize = UDim2.new(0,0,0,plLayout.AbsoluteContentSize.Y + 10)
     end)
@@ -45,7 +44,7 @@ return function(parent)
     right.Size = UDim2.new(0.72,-20,1,-20)
     right.BackgroundTransparency = 1
 
-    -- ================= AVATAR =================
+    -- ================= AVATAR (2D) =================
     local avatar = Instance.new("ImageLabel", right)
     avatar.Size = UDim2.new(0,180,0,180)
     avatar.Position = UDim2.new(0.5,-90,0,0)
@@ -53,65 +52,73 @@ return function(parent)
 
     -- ================= ASSET LIST =================
     local assetList = Instance.new("ScrollingFrame", right)
-    assetList.Position = UDim2.new(0,10,0,190)
-    assetList.Size = UDim2.new(1,-20,1,-200)
+    assetList.Position = UDim2.new(0,20,0,190)
+    assetList.Size = UDim2.new(1,-40,1,-200)
     assetList.ScrollBarThickness = 6
     assetList.BackgroundTransparency = 1
 
     local asLayout = Instance.new("UIListLayout", assetList)
     asLayout.Padding = UDim.new(0,10)
+
     asLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         assetList.CanvasSize = UDim2.new(0,0,0,asLayout.AbsoluteContentSize.Y + 10)
     end)
 
-    local function copy(txt)
-        if setclipboard then setclipboard(txt) end
+    -- ================= HELPERS =================
+    local function copy(text)
+        if setclipboard then
+            setclipboard(text)
+        end
     end
 
-    -- ================= SORT ASSETS =================
-    local function sortAssets(info)
-        local body, clothing, accessory, animation = {},{},{},{}
+    local function clearAssets()
+        for _,v in ipairs(assetList:GetChildren()) do
+            if not v:IsA("UIListLayout") then
+                v:Destroy()
+            end
+        end
+    end
 
-        for _,a in ipairs(info.assets) do
+    -- ================= SORT ASSET =================
+    local function sortAssets(assets)
+        local body, clothing, accessory, animation = {}, {}, {}, {}
+
+        for _,a in ipairs(assets) do
             local t = string.lower(a.assetType.name)
-            if t:find("body") or t:find("head") or t:find("face") then
-                table.insert(body,a)
-            elseif t:find("shirt") or t:find("pants") then
-                table.insert(clothing,a)
+            if t:find("body") or t:find("head") then
+                table.insert(body, a)
+            elseif t:find("shirt") or t:find("pant") then
+                table.insert(clothing, a)
             elseif t:find("animation") then
-                table.insert(animation,a)
+                table.insert(animation, a)
             else
-                table.insert(accessory,a)
+                table.insert(accessory, a)
             end
         end
 
         local result = {}
         for _,g in ipairs({body, clothing, accessory, animation}) do
             for _,v in ipairs(g) do
-                table.insert(result,v)
+                table.insert(result, v)
             end
         end
         return result
     end
 
     -- ================= SHOW PLAYER =================
-    local function showPlayer(plr)
-        assetList:ClearAllChildren()
-        avatar.Image = ""
+    local function showAssets(plr)
+        clearAssets()
 
-        local thumb = ThumbnailService:GetUserThumbnailAsync(
-            plr.UserId,
-            Enum.ThumbnailType.AvatarBust,
-            Enum.ThumbnailSize.Size420x420
-        )
-        avatar.Image = thumb
+        avatar.Image =
+            "https://www.roblox.com/headshot-thumbnail/image?userId="
+            ..plr.UserId.."&width=420&height=420&format=png"
 
         local ok, info = pcall(function()
             return Players:GetCharacterAppearanceInfoAsync(plr.UserId)
         end)
-        if not ok or not info then return end
+        if not ok or not info or not info.assets then return end
 
-        local assets = sortAssets(info)
+        local assets = sortAssets(info.assets)
         local batch = {}
         local colorIndex = 1
 
@@ -119,31 +126,31 @@ return function(parent)
             if #batch == 0 then return end
 
             local box = Instance.new("Frame", assetList)
-            box.Size = UDim2.new(1,0,0,#batch*24 + 40)
+            box.Size = UDim2.new(1,0,0,#batch*26 + 38)
             box.BackgroundTransparency = 1
 
             local y = 0
             for _,a in ipairs(batch) do
-                local t = Instance.new("TextLabel", box)
-                t.Size = UDim2.new(1,0,0,22)
-                t.Position = UDim2.new(0,0,0,y)
-                t.TextXAlignment = Enum.TextXAlignment.Left
-                t.Text = a.name.." ["..a.id.."]"
-                t.TextColor3 = TEXT
-                t.BackgroundTransparency = 1
-                t.Font = Enum.Font.Gotham
-                t.TextSize = 13
-                y += 24
+                local label = Instance.new("TextLabel", box)
+                label.Size = UDim2.new(1,0,0,24)
+                label.Position = UDim2.new(0,0,0,y)
+                label.BackgroundTransparency = 1
+                label.TextXAlignment = Enum.TextXAlignment.Left
+                label.Text = a.name.." ["..a.id.."]"
+                label.TextColor3 = TEXT
+                label.Font = Enum.Font.Gotham
+                label.TextSize = 13
+                y += 26
             end
 
             local btn = Instance.new("TextButton", box)
-            btn.Size = UDim2.new(0,150,0,28)
-            btn.Position = UDim2.new(0,0,0,y+4)
+            btn.Size = UDim2.new(0,140,0,28)
+            btn.Position = UDim2.new(0,0,0,y)
             btn.Text = "COPY"
-            btn.BackgroundColor3 = COPY_COLORS[colorIndex]
             btn.TextColor3 = TEXT
             btn.Font = Enum.Font.GothamBold
             btn.TextSize = 13
+            btn.BackgroundColor3 = BTN_COLORS[colorIndex]
             Instance.new("UICorner", btn)
 
             btn.MouseButton1Click:Connect(function()
@@ -154,26 +161,24 @@ return function(parent)
                 copy(txt)
 
                 colorIndex += 1
-                if colorIndex > #COPY_COLORS then
+                if colorIndex > #BTN_COLORS then
                     colorIndex = 1
                 end
-                btn.BackgroundColor3 = COPY_COLORS[colorIndex]
+                btn.BackgroundColor3 = BTN_COLORS[colorIndex]
             end)
 
             batch = {}
         end
 
         for _,a in ipairs(assets) do
-            table.insert(batch,a)
-            if #batch == 4 then
-                flush()
-            end
+            table.insert(batch, a)
+            if #batch == 4 then flush() end
         end
         flush()
     end
 
-    -- ================= BUILD PLAYER LIST =================
-    local function buildPlayers()
+    -- ================= PLAYER LIST =================
+    local function rebuild()
         plist:ClearAllChildren()
         Instance.new("UIListLayout", plist).Padding = UDim.new(0,6)
 
@@ -184,7 +189,7 @@ return function(parent)
 
         for _,p in ipairs(players) do
             local b = Instance.new("TextButton", plist)
-            b.Size = UDim2.new(1,0,0,34)
+            b.Size = UDim2.new(1,0,0,32)
             b.Text = p.Name
             b.TextColor3 = TEXT
             b.BackgroundColor3 = Color3.fromRGB(90,60,150)
@@ -193,12 +198,12 @@ return function(parent)
             Instance.new("UICorner", b)
 
             b.MouseButton1Click:Connect(function()
-                showPlayer(p)
+                showAssets(p)
             end)
         end
     end
 
-    buildPlayers()
-    Players.PlayerAdded:Connect(buildPlayers)
-    Players.PlayerRemoving:Connect(buildPlayers)
+    rebuild()
+    Players.PlayerAdded:Connect(rebuild)
+    Players.PlayerRemoving:Connect(rebuild)
 end
