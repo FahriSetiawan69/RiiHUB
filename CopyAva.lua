@@ -1,165 +1,196 @@
--- =====================================================
--- RII HUB - COPY AVATAR (REAL FIX VERSION)
--- =====================================================
+-- =========================================
+-- COPY AVATAR VIEWER (HOME GUI MODULAR)
+-- =========================================
 
 return function(parent)
-    local Players = game:GetService("Players")
+	local Players = game:GetService("Players")
 
-    parent:ClearAllChildren()
+	-- ROOT
+	local main = Instance.new("Frame", parent)
+	main.Size = UDim2.new(1,0,1,0)
+	main.BackgroundColor3 = Color3.fromRGB(45,30,80)
+	Instance.new("UICorner", main)
 
-    local BG = Color3.fromRGB(55,35,95)
-    local BTN = Color3.fromRGB(130,90,255)
-    local BTN_H = Color3.fromRGB(170,130,255)
-    local TEXT = Color3.new(1,1,1)
+	-- LEFT: PLAYER LIST
+	local playerList = Instance.new("ScrollingFrame", main)
+	playerList.Position = UDim2.new(0,10,0,10)
+	playerList.Size = UDim2.new(0.28,-10,1,-20)
+	playerList.ScrollBarThickness = 6
+	playerList.BackgroundTransparency = 1
 
-    -- ROOT
-    local root = Instance.new("Frame", parent)
-    root.Size = UDim2.new(1,0,1,0)
-    root.BackgroundColor3 = BG
-    root.BorderSizePixel = 0
-    Instance.new("UICorner", root)
+	local plLayout = Instance.new("UIListLayout", playerList)
+	plLayout.Padding = UDim.new(0,6)
 
-    -- ================= PLAYER LIST =================
-    local plist = Instance.new("ScrollingFrame", root)
-    plist.Position = UDim2.new(0,10,0,10)
-    plist.Size = UDim2.new(0.28,-10,1,-20)
-    plist.ScrollBarThickness = 6
-    plist.CanvasSize = UDim2.new()
-    plist.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    plist.BackgroundTransparency = 1
+	-- RIGHT: ASSET LIST
+	local assetList = Instance.new("ScrollingFrame", main)
+	assetList.Position = UDim2.new(0.28,10,0,10)
+	assetList.Size = UDim2.new(0.72,-20,1,-20)
+	assetList.ScrollBarThickness = 6
+	assetList.BackgroundTransparency = 1
 
-    local plLayout = Instance.new("UIListLayout", plist)
-    plLayout.Padding = UDim.new(0,6)
+	local asLayout = Instance.new("UIListLayout", assetList)
+	asLayout.Padding = UDim.new(0,10)
 
-    -- ================= RIGHT PANEL =================
-    local right = Instance.new("Frame", root)
-    right.Position = UDim2.new(0.28,10,0,10)
-    right.Size = UDim2.new(0.72,-20,1,-20)
-    right.BackgroundTransparency = 1
+	plLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		playerList.CanvasSize = UDim2.new(0,0,0,plLayout.AbsoluteContentSize.Y + 10)
+	end)
 
-    -- ================= VIEWPORT =================
-    local viewport = Instance.new("ViewportFrame", right)
-    viewport.Size = UDim2.new(0,260,0,300)
-    viewport.Position = UDim2.new(0.5,-130,0,0)
-    viewport.BackgroundTransparency = 1
+	asLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		assetList.CanvasSize = UDim2.new(0,0,0,asLayout.AbsoluteContentSize.Y + 10)
+	end)
 
-    local cam = Instance.new("Camera")
-    cam.Parent = viewport
-    viewport.CurrentCamera = cam
+	local function clearAssets()
+		for _,v in ipairs(assetList:GetChildren()) do
+			if not v:IsA("UIListLayout") then
+				v:Destroy()
+			end
+		end
+	end
 
-    -- ================= ASSET LIST =================
-    local assetList = Instance.new("ScrollingFrame", right)
-    assetList.Position = UDim2.new(0,20,0,310)
-    assetList.Size = UDim2.new(1,-40,1,-360)
-    assetList.ScrollBarThickness = 6
-    assetList.CanvasSize = UDim2.new()
-    assetList.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    assetList.BackgroundTransparency = 1
+	local function copy(text)
+		if setclipboard then
+			setclipboard(text)
+		end
+	end
 
-    local asLayout = Instance.new("UIListLayout", assetList)
-    asLayout.Padding = UDim.new(0,8)
+	-- ================= SORT CONFIG =================
+	local CATEGORY_PRIORITY = {
+		Tubuh = 1,
+		Pakaian = 2,
+		Aksesoris = 3,
+		Animasi = 4,
+		Other = 5,
+	}
 
-    -- ================= COPY BUTTON =================
-    local copyBtn = Instance.new("TextButton", right)
-    copyBtn.Size = UDim2.new(0.35,0,0,34)
-    copyBtn.Position = UDim2.new(0,20,1,-38)
-    copyBtn.Text = "COPY ALL"
-    copyBtn.BackgroundColor3 = BTN
-    copyBtn.TextColor3 = TEXT
-    Instance.new("UICorner", copyBtn)
+	local TYPE_CATEGORY = {
+		[17] = "Tubuh",[18] = "Tubuh",[27] = "Tubuh",[28] = "Tubuh",
+		[29] = "Tubuh",[30] = "Tubuh",[31] = "Tubuh",
 
-    copyBtn.MouseEnter:Connect(function()
-        copyBtn.BackgroundColor3 = BTN_H
-    end)
-    copyBtn.MouseLeave:Connect(function()
-        copyBtn.BackgroundColor3 = BTN
-    end)
+		[11] = "Pakaian",[12] = "Pakaian",[2] = "Pakaian",
 
-    local currentIds = {}
+		[8] = "Aksesoris",[41] = "Aksesoris",[42] = "Aksesoris",
+		[43] = "Aksesoris",[44] = "Aksesoris",[45] = "Aksesoris",
+		[46] = "Aksesoris",[47] = "Aksesoris",
 
-    local function copy(txt)
-        if setclipboard then setclipboard(txt) end
-    end
+		[24] = "Animasi",[48] = "Animasi",[50] = "Animasi",
+		[51] = "Animasi",[52] = "Animasi",[53] = "Animasi",[54] = "Animasi",
+	}
 
-    copyBtn.MouseButton1Click:Connect(function()
-        copy(table.concat(currentIds," "))
-    end)
+	-- ================= SHOW ASSETS =================
+	local function showAssets(player)
+		clearAssets()
 
-    -- ================= SHOW PLAYER =================
-    local function showPlayer(plr)
-        viewport:ClearAllChildren()
-        assetList:ClearAllChildren()
+		-- Avatar 2D
+		local thumb = Players:GetUserThumbnailAsync(
+			player.UserId,
+			Enum.ThumbnailType.AvatarBust,
+			Enum.ThumbnailSize.Size180x180
+		)
 
-        -- PENTING: BALIKIN LAYOUT
-        asLayout.Parent = assetList
+		local avatar = Instance.new("ImageLabel", assetList)
+		avatar.Size = UDim2.new(0,160,0,160)
+		avatar.Position = UDim2.new(0.5,-80,0,0)
+		avatar.Image = thumb
+		avatar.BackgroundColor3 = Color3.fromRGB(70,50,120)
+		avatar.ScaleType = Enum.ScaleType.Fit
+		Instance.new("UICorner", avatar)
 
-        table.clear(currentIds)
+		local ok, info = pcall(function()
+			return Players:GetCharacterAppearanceInfoAsync(player.UserId)
+		end)
+		if not ok or not info or not info.assets then return end
 
-        -- Camera
-        cam = Instance.new("Camera")
-        cam.Parent = viewport
-        viewport.CurrentCamera = cam
+		table.sort(info.assets, function(a,b)
+			local ca = CATEGORY_PRIORITY[TYPE_CATEGORY[a.assetTypeId] or "Other"]
+			local cb = CATEGORY_PRIORITY[TYPE_CATEGORY[b.assetTypeId] or "Other"]
+			if ca == cb then
+				return a.name < b.name
+			end
+			return ca < cb
+		end)
 
-        -- === AVATAR MODEL ===
-        local model = Players:GetCharacterAppearanceAsync(plr.UserId)
-        model.Parent = viewport
+		local batch = {}
 
-        -- FIX MODEL
-        local hrp = model:FindFirstChild("HumanoidRootPart")
-            or model:FindFirstChildWhichIsA("BasePart")
+		local function flush()
+			if #batch == 0 then return end
 
-        if hrp then
-            model.PrimaryPart = hrp
-            model:SetPrimaryPartCFrame(CFrame.new(0,0,0))
-        end
+			local box = Instance.new("Frame", assetList)
+			box.Size = UDim2.new(1,0,0,#batch*26 + 36)
+			box.BackgroundTransparency = 1
 
-        cam.CFrame = CFrame.new(0,2.2,7)
+			local y = 0
+			for _,a in ipairs(batch) do
+				local label = Instance.new("TextLabel", box)
+				label.Size = UDim2.new(1,0,0,24)
+				label.Position = UDim2.new(0,0,0,y)
+				label.BackgroundColor3 = Color3.fromRGB(70,50,120)
+				label.TextXAlignment = Enum.TextXAlignment.Left
+				label.Text = a.name.." ["..a.id.."]"
+				label.TextColor3 = Color3.new(1,1,1)
+				label.TextSize = 13
+				label.Font = Enum.Font.Gotham
+				Instance.new("UICorner", label)
+				y += 26
+			end
 
-        -- === ASSETS ===
-        local ok, info = pcall(function()
-            return Players:GetCharacterAppearanceInfoAsync(plr.UserId)
-        end)
-        if not ok or not info or not info.assets then return end
+			local btn = Instance.new("TextButton", box)
+			btn.Size = UDim2.new(0,140,0,28)
+			btn.Position = UDim2.new(0,0,0,y + 4)
+			btn.Text = "COPY"
+			btn.BackgroundColor3 = Color3.fromRGB(110,80,200)
+			btn.TextColor3 = Color3.new(1,1,1)
+			btn.Font = Enum.Font.GothamBold
+			btn.TextSize = 13
+			Instance.new("UICorner", btn)
 
-        for _,a in ipairs(info.assets) do
-            table.insert(currentIds, a.id)
+			btn.MouseButton1Click:Connect(function()
+				local txt = "hat"
+				for _,a in ipairs(batch) do
+					txt ..= " "..a.id
+				end
+				copy(txt)
+			end)
 
-            local row = Instance.new("Frame", assetList)
-            row.Size = UDim2.new(1,0,0,28)
-            row.BackgroundColor3 = Color3.fromRGB(80,55,140)
-            Instance.new("UICorner", row)
+			batch = {}
+		end
 
-            local t = Instance.new("TextLabel", row)
-            t.Size = UDim2.new(1,-10,1,0)
-            t.Position = UDim2.new(0,5,0,0)
-            t.TextXAlignment = Enum.TextXAlignment.Left
-            t.Text = a.name.." ["..a.id.."]"
-            t.TextSize = 12
-            t.TextColor3 = TEXT
-            t.BackgroundTransparency = 1
-        end
-    end
+		for _,asset in ipairs(info.assets) do
+			table.insert(batch, asset)
+			if #batch == 4 then flush() end
+		end
+		flush()
+	end
 
-    -- ================= PLAYER LIST =================
-    local function build()
-        plist:ClearAllChildren()
-        plLayout.Parent = plist
+	-- ================= PLAYER LIST =================
+	local function buildPlayers()
+		for _,v in ipairs(playerList:GetChildren()) do
+			if not v:IsA("UIListLayout") then
+				v:Destroy()
+			end
+		end
 
-        for _,p in ipairs(Players:GetPlayers()) do
-            local b = Instance.new("TextButton", plist)
-            b.Size = UDim2.new(1,0,0,36)
-            b.Text = p.Name
-            b.TextColor3 = TEXT
-            b.BackgroundColor3 = Color3.fromRGB(90,60,150)
-            Instance.new("UICorner", b)
+		local players = Players:GetPlayers()
+		table.sort(players, function(a,b)
+			return a.Name:lower() < b.Name:lower()
+		end)
 
-            b.MouseButton1Click:Connect(function()
-                showPlayer(p)
-            end)
-        end
-    end
+		for _,plr in ipairs(players) do
+			local btn = Instance.new("TextButton", playerList)
+			btn.Size = UDim2.new(1,0,0,32)
+			btn.Text = plr.Name
+			btn.BackgroundColor3 = Color3.fromRGB(90,65,150)
+			btn.TextColor3 = Color3.new(1,1,1)
+			btn.Font = Enum.Font.Gotham
+			btn.TextSize = 14
+			Instance.new("UICorner", btn)
 
-    build()
-    Players.PlayerAdded:Connect(build)
-    Players.PlayerRemoving:Connect(build)
+			btn.MouseButton1Click:Connect(function()
+				showAssets(plr)
+			end)
+		end
+	end
+
+	buildPlayers()
+	Players.PlayerAdded:Connect(buildPlayers)
+	Players.PlayerRemoving:Connect(buildPlayers)
 end
