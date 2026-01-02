@@ -112,7 +112,7 @@ end
 
 -- ================= FEATURES =================  
 local FEATURES = {  
-    ["Copy Ava"] = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/CopyAva.lua"
+    ["Copy Ava"] = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/CopyAva.lua",
     ["Spectator"] = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/Spectator.lua"
     -- Tambahkan fitur lain dengan URL raw disini  
 }  
@@ -129,4 +129,5 @@ for name, url in pairs(FEATURES) do
 end
 
 end
+
 
