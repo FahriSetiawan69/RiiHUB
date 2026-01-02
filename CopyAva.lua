@@ -1,5 +1,5 @@
 -- =========================================
--- COPY AVATAR VIEWER (HOME GUI MODULAR)
+-- COPY AVATAR VIEWER (HOME GUI MODULAR FIX)
 -- =========================================
 
 return function(parent)
@@ -21,16 +21,35 @@ return function(parent)
 	local plLayout = Instance.new("UIListLayout", playerList)
 	plLayout.Padding = UDim.new(0,6)
 
-	-- RIGHT: ASSET LIST
-	local assetList = Instance.new("ScrollingFrame", main)
-	assetList.Position = UDim2.new(0.28,10,0,10)
-	assetList.Size = UDim2.new(0.72,-20,1,-20)
+	-- RIGHT CONTAINER
+	local right = Instance.new("Frame", main)
+	right.Position = UDim2.new(0.28,10,0,10)
+	right.Size = UDim2.new(0.72,-20,1,-20)
+	right.BackgroundTransparency = 1
+
+	-- AVATAR (FIXED)
+	local avatarHolder = Instance.new("Frame", right)
+	avatarHolder.Size = UDim2.new(1,0,0,180)
+	avatarHolder.BackgroundTransparency = 1
+
+	local avatar = Instance.new("ImageLabel", avatarHolder)
+	avatar.Size = UDim2.new(0,160,0,160)
+	avatar.Position = UDim2.new(0.5,-80,0.5,-80)
+	avatar.BackgroundColor3 = Color3.fromRGB(70,50,120)
+	avatar.ScaleType = Enum.ScaleType.Fit
+	Instance.new("UICorner", avatar)
+
+	-- ASSET LIST (SCROLL)
+	local assetList = Instance.new("ScrollingFrame", right)
+	assetList.Position = UDim2.new(0,0,0,190)
+	assetList.Size = UDim2.new(1,0,1,-190)
 	assetList.ScrollBarThickness = 6
 	assetList.BackgroundTransparency = 1
 
 	local asLayout = Instance.new("UIListLayout", assetList)
 	asLayout.Padding = UDim.new(0,10)
 
+	-- AUTO CANVAS
 	plLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 		playerList.CanvasSize = UDim2.new(0,0,0,plLayout.AbsoluteContentSize.Y + 10)
 	end)
@@ -53,7 +72,7 @@ return function(parent)
 		end
 	end
 
-	-- ================= SORT CONFIG =================
+	-- SORT CONFIG (TIDAK DIUBAH)
 	local CATEGORY_PRIORITY = {
 		Tubuh = 1,
 		Pakaian = 2,
@@ -63,37 +82,29 @@ return function(parent)
 	}
 
 	local TYPE_CATEGORY = {
-		[17] = "Tubuh",[18] = "Tubuh",[27] = "Tubuh",[28] = "Tubuh",
-		[29] = "Tubuh",[30] = "Tubuh",[31] = "Tubuh",
+		[17]="Tubuh",[18]="Tubuh",[27]="Tubuh",[28]="Tubuh",
+		[29]="Tubuh",[30]="Tubuh",[31]="Tubuh",
 
-		[11] = "Pakaian",[12] = "Pakaian",[2] = "Pakaian",
+		[11]="Pakaian",[12]="Pakaian",[2]="Pakaian",
 
-		[8] = "Aksesoris",[41] = "Aksesoris",[42] = "Aksesoris",
-		[43] = "Aksesoris",[44] = "Aksesoris",[45] = "Aksesoris",
-		[46] = "Aksesoris",[47] = "Aksesoris",
+		[8]="Aksesoris",[41]="Aksesoris",[42]="Aksesoris",
+		[43]="Aksesoris",[44]="Aksesoris",[45]="Aksesoris",
+		[46]="Aksesoris",[47]="Aksesoris",
 
-		[24] = "Animasi",[48] = "Animasi",[50] = "Animasi",
-		[51] = "Animasi",[52] = "Animasi",[53] = "Animasi",[54] = "Animasi",
+		[24]="Animasi",[48]="Animasi",[50]="Animasi",
+		[51]="Animasi",[52]="Animasi",[53]="Animasi",[54]="Animasi",
 	}
 
 	-- ================= SHOW ASSETS =================
 	local function showAssets(player)
 		clearAssets()
 
-		-- Avatar 2D
 		local thumb = Players:GetUserThumbnailAsync(
 			player.UserId,
 			Enum.ThumbnailType.AvatarBust,
 			Enum.ThumbnailSize.Size180x180
 		)
-
-		local avatar = Instance.new("ImageLabel", assetList)
-		avatar.Size = UDim2.new(0,160,0,160)
-		avatar.Position = UDim2.new(0.5,-80,0,0)
 		avatar.Image = thumb
-		avatar.BackgroundColor3 = Color3.fromRGB(70,50,120)
-		avatar.ScaleType = Enum.ScaleType.Fit
-		Instance.new("UICorner", avatar)
 
 		local ok, info = pcall(function()
 			return Players:GetCharacterAppearanceInfoAsync(player.UserId)
@@ -161,7 +172,7 @@ return function(parent)
 		flush()
 	end
 
-	-- ================= PLAYER LIST =================
+	-- PLAYER LIST (AUTO REFRESH)
 	local function buildPlayers()
 		for _,v in ipairs(playerList:GetChildren()) do
 			if not v:IsA("UIListLayout") then
