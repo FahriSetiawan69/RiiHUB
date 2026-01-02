@@ -175,3 +175,4 @@ return function(parent)
         getHUD = function() return hud end
     }
 end
+
