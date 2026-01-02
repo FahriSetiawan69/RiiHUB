@@ -1,5 +1,5 @@
 -- =====================================================
--- RII HUB - COPY AVATAR (STABLE + UI FIX)
+-- RII HUB - COPY AVATAR (DELTA SAFE FIX)
 -- =====================================================
 
 return function(parent)
@@ -39,22 +39,23 @@ return function(parent)
 
     -- ================= VIEWPORT =================
     local viewport = Instance.new("ViewportFrame", right)
-    viewport.Size = UDim2.new(0,240,0,300)
-    viewport.Position = UDim2.new(0.5,-120,0,0)
+    viewport.Size = UDim2.new(0,260,0,320)
+    viewport.Position = UDim2.new(0.5,-130,0,0)
     viewport.BackgroundTransparency = 1
 
-    local cam = Instance.new("Camera", viewport)
+    local cam = Instance.new("Camera")
     viewport.CurrentCamera = cam
+    cam.Parent = viewport
 
     -- ================= ASSET LIST =================
     local assetList = Instance.new("ScrollingFrame", right)
-    assetList.Position = UDim2.new(0,20,0,320)
-    assetList.Size = UDim2.new(1,-40,1,-340)
+    assetList.Position = UDim2.new(0,20,0,340)
+    assetList.Size = UDim2.new(1,-40,1,-360)
     assetList.ScrollBarThickness = 6
     assetList.BackgroundTransparency = 1
 
     local asLayout = Instance.new("UIListLayout", assetList)
-    asLayout.Padding = UDim.new(0,12)
+    asLayout.Padding = UDim.new(0,14)
 
     asLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         assetList.CanvasSize = UDim2.new(0,0,0,asLayout.AbsoluteContentSize.Y + 20)
@@ -69,22 +70,24 @@ return function(parent)
         viewport:ClearAllChildren()
         assetList:ClearAllChildren()
 
-        local cam = Instance.new("Camera", viewport)
+        cam = Instance.new("Camera")
+        cam.Parent = viewport
         viewport.CurrentCamera = cam
 
-        -- ===== AVATAR MODEL =====
+        -- ===== LOAD AVATAR =====
         local model = Players:GetCharacterAppearanceAsync(plr.UserId)
         model.Parent = viewport
 
-        local hrp = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
-        if hrp then
-            model.PrimaryPart = hrp
-            model:SetPrimaryPartCFrame(CFrame.new(0,0,0))
-        end
+        -- auto center + scale
+        local cf, size = model:GetBoundingBox()
+        local maxSize = math.max(size.X, size.Y, size.Z)
 
-        cam.CFrame = CFrame.new(0,2,6)
+        cam.CFrame = CFrame.new(
+            cf.Position + Vector3.new(0, size.Y * 0.3, maxSize * 2.2),
+            cf.Position
+        )
 
-        -- ===== ASSET DATA =====
+        -- ===== LOAD ASSETS =====
         local ok, info = pcall(function()
             return Players:GetCharacterAppearanceInfoAsync(plr.UserId)
         end)
@@ -97,28 +100,27 @@ return function(parent)
 
             local box = Instance.new("Frame", assetList)
             box.Size = UDim2.new(1,0,0,0)
-            box.AutomaticSize = Enum.AutomaticSize.Y
             box.BackgroundTransparency = 1
 
-            local layout = Instance.new("UIListLayout", box)
-            layout.Padding = UDim.new(0,6)
+            local y = 0
 
             for _,a in ipairs(batch) do
-                local t = Instance.new("TextLabel", box)
-                t.Size = UDim2.new(1,-10,0,0)
-                t.AutomaticSize = Enum.AutomaticSize.Y
-                t.TextWrapped = true
-                t.TextXAlignment = Enum.TextXAlignment.Left
-                t.TextYAlignment = Enum.TextYAlignment.Top
-                t.Text = a.name.." ["..a.id.."]"
-                t.TextColor3 = TEXT
-                t.BackgroundTransparency = 1
-                t.Font = Enum.Font.Gotham
-                t.TextSize = 14
+                local label = Instance.new("TextLabel", box)
+                label.Size = UDim2.new(1,-10,0,20)
+                label.Position = UDim2.new(0,0,0,y)
+                label.TextXAlignment = Enum.TextXAlignment.Left
+                label.Text = a.name.." ["..a.id.."]"
+                label.TextColor3 = TEXT
+                label.BackgroundTransparency = 1
+                label.Font = Enum.Font.Gotham
+                label.TextSize = 14
+
+                y += 22
             end
 
             local btn = Instance.new("TextButton", box)
             btn.Size = UDim2.new(0.35,0,0,32)
+            btn.Position = UDim2.new(0,0,0,y+6)
             btn.Text = "COPY"
             btn.BackgroundColor3 = BTN
             btn.TextColor3 = TEXT
@@ -137,14 +139,13 @@ return function(parent)
                 copy(txt)
             end)
 
+            box.Size = UDim2.new(1,0,0,y + 46)
             batch = {}
         end
 
         for _,a in ipairs(info.assets) do
             table.insert(batch, a)
-            if #batch == 4 then
-                flush()
-            end
+            if #batch == 4 then flush() end
         end
         flush()
     end
