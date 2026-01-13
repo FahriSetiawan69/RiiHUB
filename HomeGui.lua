@@ -25,7 +25,6 @@ main.BackgroundTransparency = 0.15
 main.BorderSizePixel = 0
 main.Active = true
 main.Draggable = true
-
 Instance.new("UICorner", main).CornerRadius = UDim.new(0,12)
 
 --========================
@@ -101,6 +100,7 @@ end
 --========================
 -- ESP MENU BUTTON
 --========================
+local espEnabled = false
 local espBtn = Instance.new("TextButton", left)
 espBtn.Size = UDim2.new(0.9,0,0,36)
 espBtn.Text = "ESP"
@@ -111,11 +111,6 @@ espBtn.BackgroundColor3 = Color3.fromRGB(120,70,180)
 espBtn.BackgroundTransparency = 0.15
 espBtn.BorderSizePixel = 0
 Instance.new("UICorner", espBtn).CornerRadius = UDim.new(0,8)
-
---========================
--- ESP PANEL UI
---========================
-local espEnabled = false
 
 espBtn.MouseButton1Click:Connect(function()
     clearRight()
@@ -140,9 +135,7 @@ espBtn.MouseButton1Click:Connect(function()
 
     local function update()
         toggle.Text = espEnabled and "ESP : ON" or "ESP : OFF"
-        toggle.BackgroundColor3 = espEnabled
-            and Color3.fromRGB(0,180,120)
-            or Color3.fromRGB(120,70,180)
+        toggle.BackgroundColor3 = espEnabled and Color3.fromRGB(0,180,120) or Color3.fromRGB(120,70,180)
     end
 
     update()
@@ -152,6 +145,62 @@ espBtn.MouseButton1Click:Connect(function()
         update()
         if _G.ToggleESP then
             _G.ToggleESP(espEnabled)
+        end
+    end)
+end)
+
+--========================
+-- SURVIVOR ASSIST BUTTON
+--========================
+local repairGuardEnabled = false
+local survivorBtn = Instance.new("TextButton", left)
+survivorBtn.Size = UDim2.new(0.9,0,0,36)
+survivorBtn.Text = "Survivor"
+survivorBtn.Font = Enum.Font.SourceSans
+survivorBtn.TextSize = 15
+survivorBtn.TextColor3 = Color3.new(1,1,1)
+survivorBtn.BackgroundColor3 = Color3.fromRGB(120,70,180)
+survivorBtn.BackgroundTransparency = 0.15
+survivorBtn.BorderSizePixel = 0
+Instance.new("UICorner", survivorBtn).CornerRadius = UDim.new(0,8)
+
+survivorBtn.MouseButton1Click:Connect(function()
+    clearRight()
+
+    local label = Instance.new("TextLabel", right)
+    label.Size = UDim2.new(1,-20,0,30)
+    label.Position = UDim2.new(0,10,0,10)
+    label.BackgroundTransparency = 1
+    label.Text = "SURVIVOR ASSIST"
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = 16
+    label.TextColor3 = Color3.new(1,1,1)
+
+    local toggle = Instance.new("TextButton", right)
+    toggle.Size = UDim2.new(0,220,0,36)
+    toggle.Position = UDim2.new(0,10,0,60)
+    toggle.Font = Enum.Font.SourceSans
+    toggle.TextSize = 14
+    toggle.TextColor3 = Color3.new(1,1,1)
+    toggle.BorderSizePixel = 0
+    Instance.new("UICorner", toggle).CornerRadius = UDim.new(0,8)
+
+    local function update()
+        toggle.Text = repairGuardEnabled
+            and "Prevent Repair Miss : ON"
+            or "Prevent Repair Miss : OFF"
+        toggle.BackgroundColor3 = repairGuardEnabled
+            and Color3.fromRGB(0,180,120)
+            or Color3.fromRGB(120,70,180)
+    end
+
+    update()
+
+    toggle.MouseButton1Click:Connect(function()
+        repairGuardEnabled = not repairGuardEnabled
+        update()
+        if _G.ToggleRepairFailGuard then
+            _G.ToggleRepairFailGuard(repairGuardEnabled)
         end
     end)
 end)
