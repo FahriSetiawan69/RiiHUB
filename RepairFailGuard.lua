@@ -1,7 +1,6 @@
 --==================================================
--- RepairFailGuard.lua (FINAL)
--- State-based Fail-Prevention Input Guard
--- Works for Repair Generator & Heal Survivor
+-- RepairFailGuard.lua (ANIMATION-BASED FINAL)
+-- Triggered ONLY by repair/heal animation
 -- Delta Mobile Safe | Client-side
 --==================================================
 
@@ -12,142 +11,77 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 local player = Players.LocalPlayer
 
 --========================
--- CONFIG (SAFE DEFAULTS)
+-- CONFIG
 --========================
-local TAP_INTERVAL = 0.98          -- ~1 detik (sinkron skill check)
-local MOVE_EPSILON = 0.05          -- ambang gerak kecil (analog)
-local MIN_ACTION_TIME = 0.25       -- debounce masuk aksi
-local MAX_IDLE_TAP_GUARD = 0.12    -- anti false-tap singkat
+local TARGET_ANIM = "rbxassetid://131815550993649"
+local TAP_INTERVAL = 0.95   -- ~1 detik (skill check window)
 
 --========================
 -- STATE
 --========================
 local enabled = false
+local animActive = false
 local lastTap = 0
-local actionStart = 0
-local lastStill = 0
-local inAction = false
 
 --========================
--- HELPERS
+-- TAP
 --========================
-local function getChar()
-    return player.Character
-end
-
-local function getHumanoid()
-    local c = getChar()
-    return c and c:FindFirstChildOfClass("Humanoid") or nil
-end
-
-local function getRoot()
-    local c = getChar()
-    return c and c:FindFirstChild("HumanoidRootPart") or nil
-end
-
--- Simulate 1 light tap (center-ish; mobile safe)
 local function tapOnce()
     VirtualInputManager:SendMouseButtonEvent(500, 500, 0, true, game, 0)
     VirtualInputManager:SendMouseButtonEvent(500, 500, 0, false, game, 0)
 end
 
 --========================
--- ACTION DETECTION (KEY)
+-- ANIMATION HOOK
 --========================
--- Kita TIDAK pakai GUI. Kita pakai:
--- 1) Humanoid state (bukan idle)
--- 2) Gerak hampir nol (analog tidak digerakkan)
--- 3) Aksi kontinu (repair/heal) batal jika analog digerakkan
---
--- Catatan:
--- - Diam bersembunyi = Idle → TIDAK masuk aksi
--- - Repair/Heal = non-idle + tidak bergerak → MASUK aksi
+local function hookCharacter(char)
+    local humanoid = char:WaitForChild("Humanoid", 5)
+    if not humanoid then return end
 
-local function isStill()
-    local root = getRoot()
-    if not root then return false end
-    local v = root.AssemblyLinearVelocity
-    return math.abs(v.X) < MOVE_EPSILON
-       and math.abs(v.Y) < MOVE_EPSILON
-       and math.abs(v.Z) < MOVE_EPSILON
+    local animator = humanoid:WaitForChild("Animator", 5)
+    if not animator then return end
+
+    animator.AnimationPlayed:Connect(function(track)
+        local anim = track.Animation
+        if not anim then return end
+
+        if anim.AnimationId == TARGET_ANIM then
+            animActive = true
+
+            -- Stop when animation stops
+            track.Stopped:Connect(function()
+                animActive = false
+            end)
+        end
+    end)
 end
 
-local function isActionState()
-    local hum = getHumanoid()
-    if not hum then return false end
-
-    -- State yang BUKAN repair/heal:
-    -- Idle, Running, Jumping, Freefall, Climbing
-    local st = hum:GetState()
-    if st == Enum.HumanoidStateType.Idle then return false end
-    if st == Enum.HumanoidStateType.Running then return false end
-    if st == Enum.HumanoidStateType.Jumping then return false end
-    if st == Enum.HumanoidStateType.Freefall then return false end
-    if st == Enum.HumanoidStateType.Climbing then return false end
-
-    -- State lain (Physics/Seated) jarang untuk repair; kita filter via "still"
-    return true
+-- Hook character
+if player.Character then
+    hookCharacter(player.Character)
 end
+player.CharacterAdded:Connect(hookCharacter)
 
 --========================
 -- CORE LOOP
 --========================
-RunService.RenderStepped:Connect(function(dt)
-    if not enabled then
-        inAction = false
-        return
-    end
+RunService.RenderStepped:Connect(function()
+    if not enabled then return end
+    if not animActive then return end
 
-    local hum = getHumanoid()
-    local root = getRoot()
-    if not hum or not root then
-        inAction = false
-        return
-    end
-
-    local still = isStill()
-    local actionState = isActionState()
-
-    -- Gate 1: harus benar-benar aksi repair/heal
-    if actionState and still then
-        -- debounce masuk aksi
-        if not inAction then
-            actionStart = tick()
-            lastStill = tick()
-            inAction = true
-            return
-        end
-
-        -- pastikan aksi berkelanjutan (bukan kedip)
-        if tick() - actionStart < MIN_ACTION_TIME then
-            return
-        end
-
-        -- Guard: jika sempat bergerak sebentar, jangan tap
-        if tick() - lastStill < MAX_IDLE_TAP_GUARD then
-            return
-        end
-
-        -- Rate limit tap
-        if tick() - lastTap >= TAP_INTERVAL then
-            tapOnce()
-            lastTap = tick()
-        end
-    else
-        -- Keluar aksi (analog digerakkan / state berubah)
-        inAction = false
-        lastStill = tick()
+    if tick() - lastTap >= TAP_INTERVAL then
+        tapOnce()
+        lastTap = tick()
     end
 end)
 
 --========================
--- GLOBAL TOGGLE (HOMEGUI)
+-- TOGGLE FROM HOMEGUI
 --========================
 _G.ToggleRepairFailGuard = function(state)
     enabled = state and true or false
-    -- reset state saat toggle
-    inAction = false
-    lastTap = 0
-    actionStart = 0
-    lastStill = 0
+    if not enabled then
+        animActive = false
+        lastTap = 0
+    end
 end
