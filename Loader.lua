@@ -1,6 +1,6 @@
 --==================================================
--- RiiHUB Loader
--- One-Execute Loader (Delta Mobile Safe)
+-- RiiHUB Loader (FINAL)
+-- One Execute Loader | Delta Mobile Safe
 --==================================================
 
 -- Anti double execute
@@ -10,27 +10,41 @@ if _G.RiiHUB_LOADED then
 end
 _G.RiiHUB_LOADED = true
 
--- HomeGui
-local homeGuiUrl = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/refs/heads/main/HomeGui.lua"
-local espModuleUrl = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/refs/heads/main/ESPModule.lua"
+-- URLs
+local BASE = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/refs/heads/main/"
 
-local success, err = pcall(function()
-    loadstring(game:HttpGet(homeGuiUrl))()
+local HomeGuiURL = BASE .. "HomeGui.lua"
+local ESPURL = BASE .. "ESPModule.lua"
+local RepairURL = BASE .. "RepairFailGuard.lua"
+
+-- Load Home GUI
+local ok, err = pcall(function()
+    loadstring(game:HttpGet(HomeGuiURL))()
 end)
-
-if not success then
+if not ok then
     warn("Failed to load HomeGui.lua:", err)
     return
 end
 
-task.wait(0.3)
+task.wait(0.25)
 
-success, err = pcall(function()
-    loadstring(game:HttpGet(espModuleUrl))()
+-- Load ESP Module
+ok, err = pcall(function()
+    loadstring(game:HttpGet(ESPURL))()
 end)
-
-if not success then
+if not ok then
     warn("Failed to load ESPModule.lua:", err)
+    return
+end
+
+task.wait(0.25)
+
+-- Load Repair Fail Guard
+ok, err = pcall(function()
+    loadstring(game:HttpGet(RepairURL))()
+end)
+if not ok then
+    warn("Failed to load RepairFailGuard.lua:", err)
     return
 end
 
