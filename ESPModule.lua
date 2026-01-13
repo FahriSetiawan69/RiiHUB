@@ -1,6 +1,6 @@
 --==================================================
--- ESPModule.lua
--- Survivor / Killer / Generator ESP
+-- ESPModule.lua (FINAL - LOCKED LOGIC)
+-- Violence District ESP
 -- Delta Mobile Safe
 --==================================================
 
@@ -24,39 +24,25 @@ local COLORS = {
 }
 
 --========================
--- ROLE DETECTION
+-- ROLE CHECK (LOCKED)
 --========================
 local function isKiller(player)
-    if player == LocalPlayer then return false end
+    return player.Team and player.Team.Name == "Killer"
+end
 
-    if player.Character then
-        for _,v in ipairs(player.Character:GetChildren()) do
-            if v:IsA("Tool") and v.Name:lower():find("knife") then
-                return true
-            end
-        end
-    end
-
-    return player:GetAttribute("Role") == "Killer"
+local function isSurvivor(player)
+    return player.Team and player.Team.Name == "Survivors"
 end
 
 --========================
--- GENERATOR DETECTION
--- EDIT HERE IF NAME DIFFERENT
+-- GENERATOR CHECK (LOCKED)
 --========================
 local function isGenerator(obj)
-    if not obj:IsA("Model") then return false end
-
-    local name = obj.Name:lower()
-    if name:find("generator") or name:find("gen") then
-        return true
-    end
-
-    return obj:GetAttribute("Type") == "Generator"
+    return obj:IsA("Model") and obj.Name == "Generator"
 end
 
 --========================
--- CLEAR FUNCTIONS
+-- CLEANUP
 --========================
 local function clearPlayerESP(player)
     if PLAYER_ESP[player] then
@@ -81,12 +67,11 @@ local function createPlayerESP(player)
     if player == LocalPlayer then return end
     clearPlayerESP(player)
 
+    if not player.Character then return end
     local char = player.Character
-    if not char then return end
-
     local hum = char:FindFirstChildOfClass("Humanoid")
     local root = char:FindFirstChild("HumanoidRootPart")
-    if not hum or not root then return end
+    if not hum or hum.Health <= 0 or not root then return end
 
     PLAYER_ESP[player] = {}
 
@@ -102,7 +87,7 @@ local function createPlayerESP(player)
     table.insert(PLAYER_ESP[player], hl)
 
     -- HP BAR (SURVIVOR ONLY)
-    if not killer then
+    if not killer and isSurvivor(player) then
         local bill = Instance.new("BillboardGui", root)
         bill.Size = UDim2.new(0,40,0,6)
         bill.StudsOffset = Vector3.new(0,3.2,0)
@@ -122,7 +107,7 @@ local function createPlayerESP(player)
 
         RunService.RenderStepped:Connect(function()
             if hum.Health > 0 then
-                bar.Size = UDim2.new(hum.Health / hum.MaxHealth, 0, 1, 0)
+                bar.Size = UDim2.new(hum.Health / hum.MaxHealth,0,1,0)
             end
         end)
     end
@@ -134,7 +119,7 @@ end
 local function createGeneratorESP()
     clearGeneratorESP()
 
-    for _,obj in ipairs(Workspace:GetChildren()) do
+    for _,obj in ipairs(Workspace:GetDescendants()) do
         if isGenerator(obj) then
             local hl = Instance.new("Highlight")
             hl.Adornee = obj
