@@ -1,7 +1,7 @@
 --==================================================
--- RepairFailGuard.lua
--- 1x Mid-Safe Window Auto Tap
--- Prevent Repair Miss / Explosion
+-- RepairFailGuard.lua (FINAL)
+-- State-based Fail-Prevention Input Guard
+-- Works for Repair Generator & Heal Survivor
 -- Delta Mobile Safe | Client-side
 --==================================================
 
@@ -10,100 +10,144 @@ local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
 
 --========================
--- CONFIG (SAFE DEFAULT)
+-- CONFIG (SAFE DEFAULTS)
 --========================
-local MID_SAFE_DELAY = 0.68   -- ~65–70% window
-local MAX_UI_LIFETIME = 1.2   -- safety cutoff
+local TAP_INTERVAL = 0.98          -- ~1 detik (sinkron skill check)
+local MOVE_EPSILON = 0.05          -- ambang gerak kecil (analog)
+local MIN_ACTION_TIME = 0.25       -- debounce masuk aksi
+local MAX_IDLE_TAP_GUARD = 0.12    -- anti false-tap singkat
 
 --========================
 -- STATE
 --========================
 local enabled = false
-local activeSkillCheck = false
-local skillStartTime = 0
-local tapped = false
+local lastTap = 0
+local actionStart = 0
+local lastStill = 0
+local inAction = false
 
 --========================
--- HELPER: TAP
+-- HELPERS
 --========================
+local function getChar()
+    return player.Character
+end
+
+local function getHumanoid()
+    local c = getChar()
+    return c and c:FindFirstChildOfClass("Humanoid") or nil
+end
+
+local function getRoot()
+    local c = getChar()
+    return c and c:FindFirstChild("HumanoidRootPart") or nil
+end
+
+-- Simulate 1 light tap (center-ish; mobile safe)
 local function tapOnce()
-    -- Simulate 1 screen tap (center-bottom, safe area)
-    VirtualInputManager:SendMouseButtonEvent(
-        500, 500, -- arbitrary safe screen coord
-        0,
-        true,
-        game,
-        0
-    )
-    VirtualInputManager:SendMouseButtonEvent(
-        500, 500,
-        0,
-        false,
-        game,
-        0
-    )
+    VirtualInputManager:SendMouseButtonEvent(500, 500, 0, true, game, 0)
+    VirtualInputManager:SendMouseButtonEvent(500, 500, 0, false, game, 0)
 end
 
 --========================
--- SKILL CHECK UI DETECTOR
+-- ACTION DETECTION (KEY)
 --========================
-local function onGuiAdded(gui)
-    if not enabled then return end
-    if activeSkillCheck then return end
+-- Kita TIDAK pakai GUI. Kita pakai:
+-- 1) Humanoid state (bukan idle)
+-- 2) Gerak hampir nol (analog tidak digerakkan)
+-- 3) Aksi kontinu (repair/heal) batal jika analog digerakkan
+--
+-- Catatan:
+-- - Diam bersembunyi = Idle → TIDAK masuk aksi
+-- - Repair/Heal = non-idle + tidak bergerak → MASUK aksi
 
-    -- Heuristic:
-    -- Skill-check UI is temporary, appears suddenly, then disappears
-    if gui:IsA("ScreenGui") or gui:IsA("Frame") then
-        activeSkillCheck = true
-        tapped = false
-        skillStartTime = tick()
+local function isStill()
+    local root = getRoot()
+    if not root then return false end
+    local v = root.AssemblyLinearVelocity
+    return math.abs(v.X) < MOVE_EPSILON
+       and math.abs(v.Y) < MOVE_EPSILON
+       and math.abs(v.Z) < MOVE_EPSILON
+end
 
-        -- Monitor timing window
-        task.spawn(function()
-            while activeSkillCheck do
-                local elapsed = tick() - skillStartTime
+local function isActionState()
+    local hum = getHumanoid()
+    if not hum then return false end
 
-                -- Mid-safe window tap (ONLY ONCE)
-                if not tapped and elapsed >= MID_SAFE_DELAY then
-                    tapOnce()
-                    tapped = true
-                end
+    -- State yang BUKAN repair/heal:
+    -- Idle, Running, Jumping, Freefall, Climbing
+    local st = hum:GetState()
+    if st == Enum.HumanoidStateType.Idle then return false end
+    if st == Enum.HumanoidStateType.Running then return false end
+    if st == Enum.HumanoidStateType.Jumping then return false end
+    if st == Enum.HumanoidStateType.Freefall then return false end
+    if st == Enum.HumanoidStateType.Climbing then return false end
 
-                -- Safety exit
-                if elapsed > MAX_UI_LIFETIME then
-                    break
-                end
+    -- State lain (Physics/Seated) jarang untuk repair; kita filter via "still"
+    return true
+end
 
-                task.wait(0.02)
-            end
-
-            -- Reset state
-            activeSkillCheck = false
-            tapped = false
-        end)
+--========================
+-- CORE LOOP
+--========================
+RunService.RenderStepped:Connect(function(dt)
+    if not enabled then
+        inAction = false
+        return
     end
-end
 
---========================
--- GUI REMOVAL = END SKILL
---========================
-local function onGuiRemoved(gui)
-    -- When UI disappears, skill check is over
-    activeSkillCheck = false
-end
+    local hum = getHumanoid()
+    local root = getRoot()
+    if not hum or not root then
+        inAction = false
+        return
+    end
 
---========================
--- CONNECTIONS
---========================
-playerGui.ChildAdded:Connect(onGuiAdded)
-playerGui.ChildRemoved:Connect(onGuiRemoved)
+    local still = isStill()
+    local actionState = isActionState()
+
+    -- Gate 1: harus benar-benar aksi repair/heal
+    if actionState and still then
+        -- debounce masuk aksi
+        if not inAction then
+            actionStart = tick()
+            lastStill = tick()
+            inAction = true
+            return
+        end
+
+        -- pastikan aksi berkelanjutan (bukan kedip)
+        if tick() - actionStart < MIN_ACTION_TIME then
+            return
+        end
+
+        -- Guard: jika sempat bergerak sebentar, jangan tap
+        if tick() - lastStill < MAX_IDLE_TAP_GUARD then
+            return
+        end
+
+        -- Rate limit tap
+        if tick() - lastTap >= TAP_INTERVAL then
+            tapOnce()
+            lastTap = tick()
+        end
+    else
+        -- Keluar aksi (analog digerakkan / state berubah)
+        inAction = false
+        lastStill = tick()
+    end
+end)
 
 --========================
 -- GLOBAL TOGGLE (HOMEGUI)
 --========================
 _G.ToggleRepairFailGuard = function(state)
-    enabled = state
+    enabled = state and true or false
+    -- reset state saat toggle
+    inAction = false
+    lastTap = 0
+    actionStart = 0
+    lastStill = 0
 end
