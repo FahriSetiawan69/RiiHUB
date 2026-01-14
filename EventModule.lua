@@ -1,202 +1,200 @@
 --==================================================
 -- EventModule.lua (FINAL FIX)
--- Christmas Event Logic (MAP ONLY)
--- Gift ESP + Teleport Gift / Tree
+-- Gift Event | Map Only | Global API
 --==================================================
 
-local EventModule = {}
-
---========================
--- SERVICES
---========================
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
 
---========================
--- CONSTANTS (LOCKED)
---========================
-local MAP_ROOT_NAME = "Map"
-local EVENT_FOLDER_NAME = "CHRIS"
-local GIFT_FOLDER_NAME = "gLFTS"
-local GIFT_MODEL_NAME = "Gift"
-local TREE_MODEL_NAME = "ChristmasTree"
+--==================================================
+-- MODULE TABLE
+--==================================================
+local EventModule = {}
 
---========================
--- STATE
---========================
-local enabled = false
-local gifts = {}
-local christmasTree = nil
-local highlights = {}
+--==================================================
+-- INTERNAL STATE
+--==================================================
+local ENABLED = false
+local giftHighlights = {}
+local scanConnection = nil
 
---========================
--- UTILITIES
---========================
+--==================================================
+-- MAP ROOT (ANTI LOBBY)
+--==================================================
 local function getMapRoot()
-    return Workspace:FindFirstChild(MAP_ROOT_NAME)
+    local map = Workspace:FindFirstChild("Map")
+    if map then return map end
+    return nil
 end
 
-local function isInMap(inst)
-    local map = getMapRoot()
-    if not map or not inst then return false end
-    return inst:IsDescendantOf(map)
-end
-
-local function getRootPart(model)
-    return model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
-end
-
-local function clearHighlights()
-    for _,h in ipairs(highlights) do
-        if h and h.Parent then
-            h:Destroy()
-        end
-    end
-    table.clear(highlights)
-end
-
-local function addGiftHighlight(model)
-    local h = Instance.new("Highlight")
-    h.FillTransparency = 1
-    h.OutlineColor = Color3.fromRGB(0, 255, 120) -- hijau
-    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    h.Parent = model
-    table.insert(highlights, h)
-end
-
-local function teleportToModel(model, offset)
-    if not model or not isInMap(model) then return end
-
-    local root = getRootPart(model)
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not root or not hrp then return end
-
-    offset = offset or Vector3.new(0, 0, -3)
-    hrp.CFrame = CFrame.new(root.Position + offset, root.Position)
-end
-
---========================
--- SIGNATURE CHECK (GIFT)
---========================
+--==================================================
+-- VALID GIFT CHECK (BASED ON SNAPSHOT)
+--==================================================
 local function isValidGift(model)
-    if not model:IsA("Model") then return false end
-    if model.Name ~= GIFT_MODEL_NAME then return false end
-    if not isInMap(model) then return false end
+    if not model or not model:IsA("Model") then return false end
+    if model.Name ~= "Gift" then return false end
 
-    local partCount = 0
-    local hasMesh = false
-    local hasAttachment = false
-
-    for _,d in ipairs(model:GetDescendants()) do
-        if d:IsA("BasePart") then
-            partCount += 1
-        end
-        if d:IsA("MeshPart") or d:IsA("SpecialMesh") then
-            hasMesh = true
-        end
-        if d:IsA("Attachment") then
-            hasAttachment = true
-        end
+    -- signature parts (from your snapshot)
+    if not model:FindFirstChildWhichIsA("MeshPart", true) then
+        return false
     end
 
-    return partCount == 2 and hasMesh and hasAttachment
+    return true
 end
 
---========================
--- SCAN GIFTS (MAP ONLY)
---========================
+--==================================================
+-- ADD OUTLINE
+--==================================================
+local function addOutline(model)
+    if giftHighlights[model] then return end
+
+    local h = Instance.new("Highlight")
+    h.Name = "_RiiHUB_GiftHighlight"
+    h.FillTransparency = 1
+    h.OutlineColor = Color3.fromRGB(0,255,120)
+    h.OutlineTransparency = 0
+    h.Adornee = model
+    h.Parent = model
+
+    giftHighlights[model] = h
+end
+
+--==================================================
+-- CLEAR ALL
+--==================================================
+local function clearAll()
+    for model,hl in pairs(giftHighlights) do
+        if hl then hl:Destroy() end
+    end
+    giftHighlights = {}
+end
+
+--==================================================
+-- SCAN LOOP (MAP ONLY)
+--==================================================
 local function scanGifts()
-    table.clear(gifts)
-    clearHighlights()
-
     local map = getMapRoot()
     if not map then return end
 
-    local chris = map:FindFirstChild(EVENT_FOLDER_NAME)
-    if not chris then return end
-
-    local giftFolder = chris:FindFirstChild(GIFT_FOLDER_NAME)
-    if not giftFolder then return end
-
-    for _,inst in ipairs(giftFolder:GetChildren()) do
-        if isValidGift(inst) then
-            table.insert(gifts, inst)
-            addGiftHighlight(inst)
+    for _,obj in ipairs(map:GetDescendants()) do
+        if isValidGift(obj) then
+            addOutline(obj)
         end
     end
 end
 
---========================
--- SCAN TREE (MAP ONLY)
---========================
-local function scanTree()
-    christmasTree = nil
-
+--==================================================
+-- FIND NEAREST GIFT
+--==================================================
+local function getNearestGift()
     local map = getMapRoot()
-    if not map then return end
+    if not map then return nil end
 
-    local chris = map:FindFirstChild(EVENT_FOLDER_NAME)
-    if not chris then return end
+    local char = player.Character
+    if not char then return nil end
 
-    for _,inst in ipairs(chris:GetDescendants()) do
-        if inst:IsA("Model")
-            and inst.Name == TREE_MODEL_NAME
-            and isInMap(inst)
-        then
-            christmasTree = inst
-            break
-        end
-    end
-end
-
---========================
--- PUBLIC API
---========================
-function EventModule.Enable(state)
-    enabled = state
-
-    if enabled then
-        scanGifts()
-        scanTree()
-        print("[EVENT] Enabled | Gifts:", #gifts, "| Tree:", christmasTree ~= nil)
-    else
-        clearHighlights()
-        table.clear(gifts)
-        christmasTree = nil
-        print("[EVENT] Disabled")
-    end
-end
-
-function EventModule.TeleportToNearestGift()
-    if not enabled or #gifts == 0 then return end
-
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
 
     local nearest, dist = nil, math.huge
 
-    for _,g in ipairs(gifts) do
-        local root = getRootPart(g)
-        if root then
-            local d = (root.Position - hrp.Position).Magnitude
+    for model,_ in pairs(giftHighlights) do
+        local part = model.PrimaryPart
+            or model:FindFirstChildWhichIsA("BasePart", true)
+        if part then
+            local d = (part.Position - hrp.Position).Magnitude
             if d < dist then
                 dist = d
-                nearest = g
+                nearest = part
             end
         end
     end
 
-    if nearest then
-        teleportToModel(nearest)
+    return nearest
+end
+
+--==================================================
+-- FIND CHRISTMAS TREE (MAP ONLY)
+--==================================================
+local function getChristmasTree()
+    local map = getMapRoot()
+    if not map then return nil end
+
+    for _,obj in ipairs(map:GetDescendants()) do
+        if obj:IsA("Model") and obj.Name == "ChristmasTree" then
+            local part = obj.PrimaryPart
+                or obj:FindFirstChildWhichIsA("BasePart", true)
+            if part then
+                return part
+            end
+        end
+    end
+
+    return nil
+end
+
+--==================================================
+-- TELEPORT SAFE
+--==================================================
+local function teleportTo(part)
+    if not part then return end
+    local char = player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    hrp.CFrame = part.CFrame * CFrame.new(0, 0, -3)
+end
+
+--==================================================
+-- PUBLIC API
+--==================================================
+function EventModule.Enable(state)
+    ENABLED = state and true or false
+
+    if ENABLED then
+        if scanConnection then scanConnection:Disconnect() end
+        scanConnection = RunService.Heartbeat:Connect(scanGifts)
+        warn("[EventModule] ENABLED")
+    else
+        if scanConnection then
+            scanConnection:Disconnect()
+            scanConnection = nil
+        end
+        clearAll()
+        warn("[EventModule] DISABLED")
+    end
+end
+
+function EventModule.TeleportToNearestGift()
+    local gift = getNearestGift()
+    if gift then
+        teleportTo(gift)
+        warn("[EventModule] Teleported to Gift")
+    else
+        warn("[EventModule] No Gift Found")
     end
 end
 
 function EventModule.TeleportToTree()
-    if not enabled or not christmasTree then return end
-    teleportToModel(christmasTree, Vector3.new(0, 0, -5))
+    local tree = getChristmasTree()
+    if tree then
+        teleportTo(tree)
+        warn("[EventModule] Teleported to Christmas Tree")
+    else
+        warn("[EventModule] Tree Not Found")
+    end
 end
 
-return EventModule
+--==================================================
+-- GLOBAL REGISTER (CRITICAL)
+--==================================================
+_G.EventModule = EventModule
+warn("[EventModule] Global EventModule registered")
+
+--==================================================
+-- END OF FILE
+--==================================================
