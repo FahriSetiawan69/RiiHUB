@@ -1,5 +1,5 @@
 --==================================================
--- HomeGui.lua (ROOT GUI)
+-- HomeGui.lua (UPDATED for Aim Assist)
 -- Modular Ready | Delta Mobile Safe
 --==================================================
 
@@ -150,28 +150,28 @@ espBtn.MouseButton1Click:Connect(function()
 end)
 
 --========================
--- SURVIVOR ASSIST BUTTON
+-- AIM ASSIST BUTTON
 --========================
-local repairGuardEnabled = false
-local survivorBtn = Instance.new("TextButton", left)
-survivorBtn.Size = UDim2.new(0.9,0,0,36)
-survivorBtn.Text = "Survivor"
-survivorBtn.Font = Enum.Font.SourceSans
-survivorBtn.TextSize = 15
-survivorBtn.TextColor3 = Color3.new(1,1,1)
-survivorBtn.BackgroundColor3 = Color3.fromRGB(120,70,180)
-survivorBtn.BackgroundTransparency = 0.15
-survivorBtn.BorderSizePixel = 0
-Instance.new("UICorner", survivorBtn).CornerRadius = UDim.new(0,8)
+local aimEnabled = false
+local aimBtn = Instance.new("TextButton", left)
+aimBtn.Size = UDim2.new(0.9,0,0,36)
+aimBtn.Text = "Aim Assist"
+aimBtn.Font = Enum.Font.SourceSans
+aimBtn.TextSize = 15
+aimBtn.TextColor3 = Color3.new(1,1,1)
+aimBtn.BackgroundColor3 = Color3.fromRGB(120,70,180)
+aimBtn.BackgroundTransparency = 0.15
+aimBtn.BorderSizePixel = 0
+Instance.new("UICorner", aimBtn).CornerRadius = UDim.new(0,8)
 
-survivorBtn.MouseButton1Click:Connect(function()
+aimBtn.MouseButton1Click:Connect(function()
     clearRight()
 
     local label = Instance.new("TextLabel", right)
     label.Size = UDim2.new(1,-20,0,30)
     label.Position = UDim2.new(0,10,0,10)
     label.BackgroundTransparency = 1
-    label.Text = "SURVIVOR ASSIST"
+    label.Text = "AIM ASSIST"
     label.Font = Enum.Font.SourceSansBold
     label.TextSize = 16
     label.TextColor3 = Color3.new(1,1,1)
@@ -186,21 +186,17 @@ survivorBtn.MouseButton1Click:Connect(function()
     Instance.new("UICorner", toggle).CornerRadius = UDim.new(0,8)
 
     local function update()
-        toggle.Text = repairGuardEnabled
-            and "Prevent Repair Miss : ON"
-            or "Prevent Repair Miss : OFF"
-        toggle.BackgroundColor3 = repairGuardEnabled
-            and Color3.fromRGB(0,180,120)
-            or Color3.fromRGB(120,70,180)
+        toggle.Text = aimEnabled and "Aim Assist : ON" or "Aim Assist : OFF"
+        toggle.BackgroundColor3 = aimEnabled and Color3.fromRGB(0,180,120) or Color3.fromRGB(120,70,180)
     end
 
     update()
 
     toggle.MouseButton1Click:Connect(function()
-        repairGuardEnabled = not repairGuardEnabled
+        aimEnabled = not aimEnabled
         update()
-        if _G.ToggleRepairFailGuard then
-            _G.ToggleRepairFailGuard(repairGuardEnabled)
+        if _G.ToggleAimAssist then
+            _G.ToggleAimAssist(aimEnabled)
         end
     end)
 end)
