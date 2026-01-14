@@ -1,13 +1,13 @@
 --==================================================
--- EventModule.lua (FINAL)
--- Fast Teleport | Gift Outline | Auto Pickup -> Tree
--- Button ONLY teleports to next Gift
+-- EventModule.lua (FINAL - TOOL BASED PICKUP)
+-- Button -> Gift ONLY
+-- Detect pickup via Tool in Character
+-- Auto teleport -> ChristmasTree
 --==================================================
 
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -18,18 +18,11 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local GIFT_MODEL_NAME = "Gift"
 local TREE_MODEL_NAME = "ChristmasTree"
 
+-- kata kunci nama Tool kado (case-insensitive)
+local GIFT_TOOL_KEYWORDS = { "gift", "present", "christmas" }
+
 local LOBBY_KEYWORDS = { "lobby", "spawn", "waiting", "menu" }
-
--- teleport offset & speed
 local TELEPORT_OFFSET = Vector3.new(0, 3, 0)
-local FAST_TELEPORT = true  -- kept for clarity
-
--- highlight color
-local GIFT_OUTLINE_COLOR = Color3.fromRGB(0, 255, 120)
-
--- pickup detect tuning
-local PICKUP_RADIUS = 7        -- studs (HRP near gift)
-local PICKUP_CONFIRM_TIME = 0.15
 
 --==================================================
 -- MODULE
@@ -41,13 +34,13 @@ EventModule.Enabled = false
 local gifts = {}
 local trees = {}
 local giftIndex = 1
-local currentGift = nil
-local pickupConn = nil
+local waitingForPickup = false
+local toolConn = nil
+
 local gui, floatBtn
-local highlights = {}
 
 --==================================================
--- UTILS
+-- UTIL
 --==================================================
 local function isLobbyContainer(inst)
     local cur = inst
@@ -82,18 +75,57 @@ local function teleportToModel(model)
     hrp.CFrame = CFrame.new(part.Position + TELEPORT_OFFSET)
 end
 
+local function teleportToNearestTree()
+    local hrp = getHRP()
+    if not hrp then return end
+
+    local nearest, best = nil, math.huge
+    for _, t in ipairs(trees) do
+        local p = getPrimary(t)
+        if p then
+            local d = (p.Position - hrp.Position).Magnitude
+            if d < best then
+                best = d
+                nearest = t
+            end
+        end
+    end
+
+    if nearest then
+        teleportToModel(nearest)
+        print("[EventModule] Auto teleport to ChristmasTree")
+    end
+end
+
+local function hasGiftTool()
+    local ch = LocalPlayer.Character
+    if not ch then return false end
+
+    for _, inst in ipairs(ch:GetChildren()) do
+        if inst:IsA("Tool") then
+            local lname = string.lower(inst.Name)
+            for _, k in ipairs(GIFT_TOOL_KEYWORDS) do
+                if string.find(lname, k) then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
 --==================================================
--- SCAN MAP (EXCLUDE LOBBY)
+-- SCAN MAP
 --==================================================
 local function scanMap()
     table.clear(gifts)
     table.clear(trees)
 
     for _, m in ipairs(Workspace:GetDescendants()) do
-        if m:IsA("Model") then
-            if m.Name == GIFT_MODEL_NAME and not isLobbyContainer(m) then
+        if m:IsA("Model") and not isLobbyContainer(m) then
+            if m.Name == GIFT_MODEL_NAME then
                 table.insert(gifts, m)
-            elseif m.Name == TREE_MODEL_NAME and not isLobbyContainer(m) then
+            elseif m.Name == TREE_MODEL_NAME then
                 table.insert(trees, m)
             end
         end
@@ -103,70 +135,28 @@ local function scanMap()
 end
 
 --==================================================
--- HIGHLIGHT GIFTS (GREEN OUTLINE)
---==================================================
-local function clearHighlights()
-    for _, h in ipairs(highlights) do
-        if h then h:Destroy() end
-    end
-    table.clear(highlights)
-end
-
-local function applyHighlights()
-    clearHighlights()
-    for _, g in ipairs(gifts) do
-        local h = Instance.new("Highlight")
-        h.Name = "EventGiftHighlight"
-        h.FillTransparency = 1
-        h.OutlineTransparency = 0
-        h.OutlineColor = GIFT_OUTLINE_COLOR
-        h.Adornee = g
-        h.Parent = g
-        table.insert(highlights, h)
-    end
-end
-
---==================================================
--- AUTO PICKUP DETECTOR
--- Detect when player gets close to current gift
+-- PICKUP DETECTOR (TOOL-BASED)
 --==================================================
 local function startPickupWatcher()
-    if pickupConn then pickupConn:Disconnect() end
-    pickupConn = nil
+    if toolConn then toolConn:Disconnect() end
 
-    if not currentGift then return end
-    local giftPart = getPrimary(currentGift)
-    if not giftPart then return end
+    toolConn = LocalPlayer.Character.ChildAdded:Connect(function(child)
+        if not waitingForPickup then return end
+        if not child:IsA("Tool") then return end
 
-    local t0 = 0
-    pickupConn = RunService.Heartbeat:Connect(function(dt)
-        if not EventModule.Enabled then return end
-        local hrp = getHRP()
-        if not hrp then return end
-
-        local dist = (hrp.Position - giftPart.Position).Magnitude
-        if dist <= PICKUP_RADIUS then
-            t0 += dt
-            if t0 >= PICKUP_CONFIRM_TIME then
-                -- picked up -> auto teleport to tree
-                pickupConn:Disconnect()
-                pickupConn = nil
-                currentGift = nil
-
-                if #trees > 0 then
-                    local idx = (giftIndex - 1) % #trees + 1
-                    teleportToModel(trees[idx])
-                    print("[EventModule] Auto teleport to Tree")
-                end
+        local lname = string.lower(child.Name)
+        for _, k in ipairs(GIFT_TOOL_KEYWORDS) do
+            if string.find(lname, k) then
+                waitingForPickup = false
+                teleportToNearestTree()
+                return
             end
-        else
-            t0 = 0
         end
     end)
 end
 
 --==================================================
--- GUI (FLOATING BUTTON, DRAGGABLE)
+-- GUI
 --==================================================
 local function destroyGui()
     if gui then gui:Destroy() end
@@ -221,21 +211,19 @@ local function createGui()
         end)
     end
 
-    -- click -> teleport to next gift ONLY
+    -- CLICK -> TELEPORT TO GIFT ONLY
     floatBtn.MouseButton1Click:Connect(function()
         if not EventModule.Enabled then return end
-        if #gifts == 0 then
-            warn("[EventModule] No gifts found")
-            return
-        end
+        if #gifts == 0 then return end
 
-        currentGift = gifts[giftIndex]
-        teleportToModel(currentGift)
+        local gift = gifts[giftIndex]
+        teleportToModel(gift)
         print("[EventModule] Teleport to Gift:", giftIndex)
 
         giftIndex += 1
         if giftIndex > #gifts then giftIndex = 1 end
 
+        waitingForPickup = true
         startPickupWatcher()
     end)
 end
@@ -248,7 +236,6 @@ function EventModule:Enable()
     EventModule.Enabled = true
 
     scanMap()
-    applyHighlights()
     createGui()
 
     print("[EventModule] Enabled")
@@ -256,13 +243,12 @@ end
 
 function EventModule:Disable()
     EventModule.Enabled = false
+    waitingForPickup = false
 
-    if pickupConn then pickupConn:Disconnect() pickupConn = nil end
-    currentGift = nil
+    if toolConn then toolConn:Disconnect() end
+    toolConn = nil
 
-    clearHighlights()
     destroyGui()
-
     print("[EventModule] Disabled")
 end
 
