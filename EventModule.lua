@@ -1,197 +1,202 @@
 --==================================================
---  (Christmas Event Assist)
--- Teleport any-distance | Green Outline Gift
--- Manual UI Tap (pickup) | Auto Touch (tree)
--- Delta Mobile Safe
+-- EventModule.lua (FINAL FIX)
+-- Christmas Event Logic (MAP ONLY)
+-- Gift ESP + Teleport Gift / Tree
 --==================================================
 
+local EventModule = {}
+
+--========================
+-- SERVICES
+--========================
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local camera = Workspace.CurrentCamera
+local character = player.Character or player.CharacterAdded:Wait()
+
+--========================
+-- CONSTANTS (LOCKED)
+--========================
+local MAP_ROOT_NAME = "Map"
+local EVENT_FOLDER_NAME = "CHRIS"
+local GIFT_FOLDER_NAME = "gLFTS"
+local GIFT_MODEL_NAME = "Gift"
+local TREE_MODEL_NAME = "ChristmasTree"
 
 --========================
 -- STATE
 --========================
 local enabled = false
-local flyBtnGift, flyBtnTree, hintGui
-local activeHighlight
-local currentGiftTarget
+local gifts = {}
+local christmasTree = nil
+local highlights = {}
 
 --========================
--- CONFIG
+-- UTILITIES
 --========================
-local GIFT_HIGHLIGHT_COLOR = Color3.fromRGB(0,255,120)
-local TELEPORT_OFFSET_GIFT = Vector3.new(0, 0, -3)
-local TELEPORT_OFFSET_TREE = Vector3.new(3, 0, 0)
-
---========================
--- UTIL
---========================
-local function getHRP()
-    local char = player.Character
-    return char and char:FindFirstChild("HumanoidRootPart")
+local function getMapRoot()
+    return Workspace:FindFirstChild(MAP_ROOT_NAME)
 end
 
-local function lookAt(pos)
-    camera.CFrame = CFrame.new(camera.CFrame.Position, pos)
+local function isInMap(inst)
+    local map = getMapRoot()
+    if not map or not inst then return false end
+    return inst:IsDescendantOf(map)
 end
 
-local function clearHighlight()
-    if activeHighlight then
-        activeHighlight:Destroy()
-        activeHighlight = nil
+local function getRootPart(model)
+    return model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+end
+
+local function clearHighlights()
+    for _,h in ipairs(highlights) do
+        if h and h.Parent then
+            h:Destroy()
+        end
+    end
+    table.clear(highlights)
+end
+
+local function addGiftHighlight(model)
+    local h = Instance.new("Highlight")
+    h.FillTransparency = 1
+    h.OutlineColor = Color3.fromRGB(0, 255, 120) -- hijau
+    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    h.Parent = model
+    table.insert(highlights, h)
+end
+
+local function teleportToModel(model, offset)
+    if not model or not isInMap(model) then return end
+
+    local root = getRootPart(model)
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not root or not hrp then return end
+
+    offset = offset or Vector3.new(0, 0, -3)
+    hrp.CFrame = CFrame.new(root.Position + offset, root.Position)
+end
+
+--========================
+-- SIGNATURE CHECK (GIFT)
+--========================
+local function isValidGift(model)
+    if not model:IsA("Model") then return false end
+    if model.Name ~= GIFT_MODEL_NAME then return false end
+    if not isInMap(model) then return false end
+
+    local partCount = 0
+    local hasMesh = false
+    local hasAttachment = false
+
+    for _,d in ipairs(model:GetDescendants()) do
+        if d:IsA("BasePart") then
+            partCount += 1
+        end
+        if d:IsA("MeshPart") or d:IsA("SpecialMesh") then
+            hasMesh = true
+        end
+        if d:IsA("Attachment") then
+            hasAttachment = true
+        end
+    end
+
+    return partCount == 2 and hasMesh and hasAttachment
+end
+
+--========================
+-- SCAN GIFTS (MAP ONLY)
+--========================
+local function scanGifts()
+    table.clear(gifts)
+    clearHighlights()
+
+    local map = getMapRoot()
+    if not map then return end
+
+    local chris = map:FindFirstChild(EVENT_FOLDER_NAME)
+    if not chris then return end
+
+    local giftFolder = chris:FindFirstChild(GIFT_FOLDER_NAME)
+    if not giftFolder then return end
+
+    for _,inst in ipairs(giftFolder:GetChildren()) do
+        if isValidGift(inst) then
+            table.insert(gifts, inst)
+            addGiftHighlight(inst)
+        end
     end
 end
 
-local function setHighlight(model)
-    clearHighlight()
-    local h = Instance.new("Highlight")
-    h.FillTransparency = 1
-    h.OutlineColor = GIFT_HIGHLIGHT_COLOR
-    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    h.Parent = model
-    activeHighlight = h
+--========================
+-- SCAN TREE (MAP ONLY)
+--========================
+local function scanTree()
+    christmasTree = nil
+
+    local map = getMapRoot()
+    if not map then return end
+
+    local chris = map:FindFirstChild(EVENT_FOLDER_NAME)
+    if not chris then return end
+
+    for _,inst in ipairs(chris:GetDescendants()) do
+        if inst:IsA("Model")
+            and inst.Name == TREE_MODEL_NAME
+            and isInMap(inst)
+        then
+            christmasTree = inst
+            break
+        end
+    end
 end
 
 --========================
--- FINDERS (NAMELESS)
+-- PUBLIC API
 --========================
--- Cari kandidat object interaktif (bukan player, bukan map statis)
-local function findGiftCandidate()
-    local best, bestScore
+function EventModule.Enable(state)
+    enabled = state
 
-    for _,inst in ipairs(Workspace:GetDescendants()) do
-        if inst:IsA("BasePart") and inst.CanCollide then
-            local model = inst:FindFirstAncestorOfClass("Model")
-            if model and not Players:GetPlayerFromCharacter(model) then
-                -- heuristik: object kecil-menengah, bukan terrain
-                local size = inst.Size
-                local score = size.Magnitude
-                if score < 30 then
-                    best = model
-                    bestScore = score
-                    break
-                end
+    if enabled then
+        scanGifts()
+        scanTree()
+        print("[EVENT] Enabled | Gifts:", #gifts, "| Tree:", christmasTree ~= nil)
+    else
+        clearHighlights()
+        table.clear(gifts)
+        christmasTree = nil
+        print("[EVENT] Disabled")
+    end
+end
+
+function EventModule.TeleportToNearestGift()
+    if not enabled or #gifts == 0 then return end
+
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local nearest, dist = nil, math.huge
+
+    for _,g in ipairs(gifts) do
+        local root = getRootPart(g)
+        if root then
+            local d = (root.Position - hrp.Position).Magnitude
+            if d < dist then
+                dist = d
+                nearest = g
             end
         end
     end
 
-    return best
-end
-
-local function findChristmasTree()
-    -- dari debug Anda, path pohon konsisten
-    return Workspace:FindFirstChild("Map", true)
-        and Workspace:FindFirstChild("ChristmasTree", true)
-end
-
---========================
--- TELEPORT ACTIONS
---========================
-local function goToGift()
-    local hrp = getHRP()
-    if not hrp then return end
-
-    local gift = findGiftCandidate()
-    if not gift then return end
-
-    currentGiftTarget = gift
-    setHighlight(gift)
-
-    local pivot = gift:GetPivot()
-    hrp.CFrame = pivot * CFrame.new(TELEPORT_OFFSET_GIFT)
-    lookAt(pivot.Position)
-
-    if hintGui then hintGui.Enabled = true end
-end
-
-local function goToTree()
-    local hrp = getHRP()
-    if not hrp then return end
-
-    local tree = findChristmasTree()
-    if not tree then return end
-
-    clearHighlight()
-    currentGiftTarget = nil
-
-    local pivot = tree:GetPivot()
-    hrp.CFrame = pivot * CFrame.new(TELEPORT_OFFSET_TREE)
-    lookAt(pivot.Position)
-
-    if hintGui then hintGui.Enabled = false end
-end
-
---========================
--- UI (FLY BUTTONS)
---========================
-local function makeFlyButton(text, pos)
-    local gui = Instance.new("ScreenGui")
-    gui.ResetOnSpawn = false
-    gui.Parent = player:WaitForChild("PlayerGui")
-
-    local btn = Instance.new("TextButton", gui)
-    btn.Size = UDim2.new(0,120,0,42)
-    btn.Position = pos
-    btn.Text = text
-    btn.Font = Enum.Font.SourceSansBold
-    btn.TextSize = 14
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.BackgroundColor3 = Color3.fromRGB(120,70,180)
-    btn.BackgroundTransparency = 0.1
-    btn.BorderSizePixel = 0
-    btn.Active = true
-    btn.Draggable = true
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0,10)
-
-    return gui, btn
-end
-
-local function spawnUI()
-    local g1, b1 = makeFlyButton("Go to Gift", UDim2.new(0.65,0,0.55,0))
-    local g2, b2 = makeFlyButton("Go to Tree", UDim2.new(0.65,0,0.65,0))
-    flyBtnGift, flyBtnTree = g1, g2
-
-    b1.MouseButton1Click:Connect(goToGift)
-    b2.MouseButton1Click:Connect(goToTree)
-
-    -- Hint UI
-    hintGui = Instance.new("ScreenGui", player.PlayerGui)
-    hintGui.ResetOnSpawn = false
-    hintGui.Enabled = false
-
-    local lbl = Instance.new("TextLabel", hintGui)
-    lbl.Size = UDim2.new(0,260,0,30)
-    lbl.Position = UDim2.new(1,-270,1,-120) -- kanan-bawah, dekat tombol besar
-    lbl.BackgroundColor3 = Color3.fromRGB(0,150,90)
-    lbl.BackgroundTransparency = 0.15
-    lbl.BorderSizePixel = 0
-    lbl.Text = "TEKAN TOMBOL BESAR UNTUK AMBIL KADO"
-    lbl.Font = Enum.Font.SourceSansBold
-    lbl.TextSize = 12
-    lbl.TextColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", lbl).CornerRadius = UDim.new(0,8)
-end
-
-local function destroyUI()
-    if flyBtnGift then flyBtnGift:Destroy(); flyBtnGift = nil end
-    if flyBtnTree then flyBtnTree:Destroy(); flyBtnTree = nil end
-    if hintGui then hintGui:Destroy(); hintGui = nil end
-    clearHighlight()
-    currentGiftTarget = nil
-end
-
---========================
--- TOGGLE (FROM HOMEGUI)
---========================
-_G.ToggleEvent = function(state)
-    enabled = state and true or false
-    if enabled then
-        spawnUI()
-    else
-        destroyUI()
+    if nearest then
+        teleportToModel(nearest)
     end
 end
+
+function EventModule.TeleportToTree()
+    if not enabled or not christmasTree then return end
+    teleportToModel(christmasTree, Vector3.new(0, 0, -5))
+end
+
+return EventModule
