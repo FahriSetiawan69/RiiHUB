@@ -1,11 +1,12 @@
 --==================================================
--- EventModule.lua (FINAL - HITBOX TOUCH FIX)
--- Gift deposit requires TOOL TOUCH to Tree hitbox
+-- EventModule.lua (FINAL - 2 BUTTON MODE)
+-- Button GIFT  -> teleport to Gift
+-- Button TREE  -> teleport to Tree
+-- Gift outlined (green), Tree no outline
 --==================================================
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
-local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
@@ -17,16 +18,12 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local GIFT_MODEL_NAME = "Gift"
 local TREE_MODEL_NAME = "ChristmasTree"
 
-local GIFT_TOOL_KEYWORDS = { "gift", "present", "christmas" }
 local LOBBY_KEYWORDS = { "lobby", "spawn", "waiting", "menu" }
 
--- movement tuning (PENTING)
-local TREE_APPROACH_DISTANCE = 6     -- posisi awal di depan pohon
-local TREE_PUSH_DISTANCE = 4         -- jarak dorong menembus hitbox
-local TREE_UP_OFFSET = 2
+local GIFT_OUTLINE_COLOR = Color3.fromRGB(0, 255, 120)
 local GIFT_UP_OFFSET = 3
-
-local PUSH_TIME = 0.30               -- durasi dorong (detik)
+local TREE_FORWARD_OFFSET = 6
+local TREE_UP_OFFSET = 2
 
 --==================================================
 -- MODULE
@@ -36,9 +33,8 @@ EventModule.Enabled = false
 
 local gifts, trees = {}, {}
 local giftIndex = 1
-local waitingForPickup = false
-local toolConn
-local gui, floatBtn
+local gui, giftBtn, treeBtn
+local highlights = {}
 
 --==================================================
 -- UTILS
@@ -62,29 +58,9 @@ local function getPrimary(model)
     end
 end
 
-local function getChar()
-    return LocalPlayer.Character
-end
-
 local function getHRP()
-    local c = getChar()
-    return c and c:FindFirstChild("HumanoidRootPart")
-end
-
-local function hasGiftTool()
-    local c = getChar()
-    if not c then return false end
-    for _, ch in ipairs(c:GetChildren()) do
-        if ch:IsA("Tool") then
-            local lname = string.lower(ch.Name)
-            for _, k in ipairs(GIFT_TOOL_KEYWORDS) do
-                if string.find(lname, k) then
-                    return true
-                end
-            end
-        end
-    end
-    return false
+    local ch = LocalPlayer.Character
+    return ch and ch:FindFirstChild("HumanoidRootPart")
 end
 
 --==================================================
@@ -108,52 +84,49 @@ local function scanMap()
 end
 
 --==================================================
--- TELEPORT LOGIC
+-- HIGHLIGHT GIFTS ONLY
 --==================================================
-local function teleportToGift(gift)
-    local hrp = getHRP()
-    local p = getPrimary(gift)
-    if hrp and p then
-        hrp.CFrame = CFrame.new(p.Position + Vector3.new(0, GIFT_UP_OFFSET, 0))
-        print("[EventModule] Teleport to Gift")
+local function clearHighlights()
+    for _, h in ipairs(highlights) do
+        if h then h:Destroy() end
+    end
+    table.clear(highlights)
+end
+
+local function applyGiftHighlight()
+    clearHighlights()
+    for _, g in ipairs(gifts) do
+        local h = Instance.new("Highlight")
+        h.Name = "EventGiftHighlight"
+        h.FillTransparency = 1
+        h.OutlineTransparency = 0
+        h.OutlineColor = GIFT_OUTLINE_COLOR
+        h.Adornee = g
+        h.Parent = g
+        table.insert(highlights, h)
     end
 end
 
-local function depositToTree(tree)
+--==================================================
+-- TELEPORT LOGIC
+--==================================================
+local function teleportToGift()
+    if #gifts == 0 then return end
     local hrp = getHRP()
-    local p = getPrimary(tree)
-    if not (hrp and p) then return end
+    local gift = gifts[giftIndex]
+    local p = getPrimary(gift)
 
-    -- 1) posisi awal di depan pohon
-    local treeCF = p.CFrame
-    local startPos =
-        treeCF.Position
-        - treeCF.LookVector * TREE_APPROACH_DISTANCE
-        + Vector3.new(0, TREE_UP_OFFSET, 0)
+    if hrp and p then
+        hrp.CFrame = CFrame.new(p.Position + Vector3.new(0, GIFT_UP_OFFSET, 0))
+        print("[EventModule] Teleport -> Gift", giftIndex)
+    end
 
-    hrp.CFrame = CFrame.new(startPos, treeCF.Position)
-    task.wait(0.05)
-
-    -- 2) dorong masuk ke hitbox (MENYENTUH)
-    local pushPos =
-        startPos
-        + treeCF.LookVector * TREE_PUSH_DISTANCE
-
-    local tween = TweenService:Create(
-        hrp,
-        TweenInfo.new(PUSH_TIME, Enum.EasingStyle.Linear),
-        { CFrame = CFrame.new(pushPos, treeCF.Position) }
-    )
-
-    tween:Play()
-    tween.Completed:Wait()
-
-    print("[EventModule] Gift deposited via hitbox touch")
+    giftIndex += 1
+    if giftIndex > #gifts then giftIndex = 1 end
 end
 
-local function depositToNearestTree()
-    if not hasGiftTool() then return end
-
+local function teleportToNearestTree()
+    if #trees == 0 then return end
     local hrp = getHRP()
     if not hrp then return end
 
@@ -170,38 +143,24 @@ local function depositToNearestTree()
     end
 
     if nearest then
-        depositToTree(nearest)
+        local p = getPrimary(nearest)
+        local cf = p.CFrame
+        local pos =
+            cf.Position
+            - cf.LookVector * TREE_FORWARD_OFFSET
+            + Vector3.new(0, TREE_UP_OFFSET, 0)
+
+        hrp.CFrame = CFrame.new(pos, cf.Position)
+        print("[EventModule] Teleport -> Tree")
     end
 end
 
 --==================================================
--- PICKUP DETECTOR (TOOL BASED)
---==================================================
-local function startPickupWatcher()
-    if toolConn then toolConn:Disconnect() end
-
-    toolConn = LocalPlayer.Character.ChildAdded:Connect(function(child)
-        if not waitingForPickup then return end
-        if not child:IsA("Tool") then return end
-
-        local lname = string.lower(child.Name)
-        for _, k in ipairs(GIFT_TOOL_KEYWORDS) do
-            if string.find(lname, k) then
-                waitingForPickup = false
-                task.wait(0.1)
-                depositToNearestTree()
-                return
-            end
-        end
-    end)
-end
-
---==================================================
--- GUI
+-- GUI (2 BUTTONS, DRAGGABLE)
 --==================================================
 local function destroyGui()
     if gui then gui:Destroy() end
-    gui, floatBtn = nil, nil
+    gui, giftBtn, treeBtn = nil, nil, nil
 end
 
 local function createGui()
@@ -214,55 +173,59 @@ local function createGui()
     gui.DisplayOrder = 999
     gui.Parent = PlayerGui
 
-    floatBtn = Instance.new("TextButton")
-    floatBtn.Size = UDim2.fromOffset(190, 44)
-    floatBtn.Position = UDim2.fromScale(0.05, 0.7)
-    floatBtn.Text = "EVENT: NEXT GIFT"
-    floatBtn.Font = Enum.Font.GothamBold
-    floatBtn.TextSize = 16
-    floatBtn.TextColor3 = Color3.new(1,1,1)
-    floatBtn.BackgroundColor3 = Color3.fromRGB(150, 90, 220)
-    floatBtn.BackgroundTransparency = 0.15
-    floatBtn.Parent = gui
-    Instance.new("UICorner", floatBtn)
+    local function createButton(text, posY)
+        local b = Instance.new("TextButton")
+        b.Size = UDim2.fromOffset(160, 44)
+        b.Position = UDim2.fromScale(0.05, posY)
+        b.Text = text
+        b.Font = Enum.Font.GothamBold
+        b.TextSize = 16
+        b.TextColor3 = Color3.new(1,1,1)
+        b.BackgroundColor3 = Color3.fromRGB(150, 90, 220)
+        b.BackgroundTransparency = 0.15
+        b.Parent = gui
+        Instance.new("UICorner", b)
+        return b
+    end
 
-    -- drag
+    giftBtn = createButton("EVENT: GIFT", 0.65)
+    treeBtn = createButton("EVENT: TREE", 0.72)
+
+    -- DRAG GROUP
     do
-        local dragging, startPos, dragStart
-        floatBtn.InputBegan:Connect(function(input)
+        local dragging, dragStart, startPos
+        giftBtn.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.Touch
             or input.UserInputType == Enum.UserInputType.MouseButton1 then
                 dragging = true
                 dragStart = input.Position
-                startPos = floatBtn.Position
+                startPos = giftBtn.Position
             end
         end)
+
         UserInputService.InputChanged:Connect(function(input)
             if dragging and (input.UserInputType == Enum.UserInputType.Touch
             or input.UserInputType == Enum.UserInputType.MouseMovement) then
                 local d = input.Position - dragStart
-                floatBtn.Position = UDim2.new(
+                giftBtn.Position = UDim2.new(
                     startPos.X.Scale, startPos.X.Offset + d.X,
                     startPos.Y.Scale, startPos.Y.Offset + d.Y
                 )
+                treeBtn.Position = giftBtn.Position + UDim2.fromOffset(0, 50)
             end
         end)
+
         UserInputService.InputEnded:Connect(function()
             dragging = false
         end)
     end
 
-    -- CLICK -> TELEPORT TO GIFT ONLY
-    floatBtn.MouseButton1Click:Connect(function()
-        if not EventModule.Enabled then return end
-        if #gifts == 0 then return end
+    giftBtn.MouseButton1Click:Connect(function()
+        if EventModule.Enabled then teleportToGift() end
+    end)
 
-        teleportToGift(gifts[giftIndex])
-        giftIndex += 1
-        if giftIndex > #gifts then giftIndex = 1 end
-
-        waitingForPickup = true
-        startPickupWatcher()
+    treeBtn.MouseButton1Click:Connect(function()
+        if EventModule.Enabled then teleportToNearestTree() end
     end)
 end
 
@@ -272,15 +235,17 @@ end
 function EventModule:Enable()
     if EventModule.Enabled then return end
     EventModule.Enabled = true
+
     scanMap()
+    applyGiftHighlight()
     createGui()
+
     print("[EventModule] Enabled")
 end
 
 function EventModule:Disable()
     EventModule.Enabled = false
-    waitingForPickup = false
-    if toolConn then toolConn:Disconnect() end
+    clearHighlights()
     destroyGui()
     print("[EventModule] Disabled")
 end
