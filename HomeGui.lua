@@ -1,5 +1,5 @@
 --==================================================
--- HomeGui.lua (UPDATED for Aim Assist)
+-- HomeGui.lua (UPDATED with ESP, Survivor, Event)
 -- Modular Ready | Delta Mobile Safe
 --==================================================
 
@@ -114,7 +114,6 @@ Instance.new("UICorner", espBtn).CornerRadius = UDim.new(0,8)
 
 espBtn.MouseButton1Click:Connect(function()
     clearRight()
-
     local label = Instance.new("TextLabel", right)
     label.Size = UDim2.new(1,-20,0,30)
     label.Position = UDim2.new(0,10,0,10)
@@ -150,28 +149,79 @@ espBtn.MouseButton1Click:Connect(function()
 end)
 
 --========================
--- AIM ASSIST BUTTON
+-- SURVIVOR TAB BUTTON
 --========================
-local aimEnabled = false
-local aimBtn = Instance.new("TextButton", left)
-aimBtn.Size = UDim2.new(0.9,0,0,36)
-aimBtn.Text = "Aim Assist"
-aimBtn.Font = Enum.Font.SourceSans
-aimBtn.TextSize = 15
-aimBtn.TextColor3 = Color3.new(1,1,1)
-aimBtn.BackgroundColor3 = Color3.fromRGB(120,70,180)
-aimBtn.BackgroundTransparency = 0.15
-aimBtn.BorderSizePixel = 0
-Instance.new("UICorner", aimBtn).CornerRadius = UDim.new(0,8)
+local survivorEnabled = false
+local survivorBtn = Instance.new("TextButton", left)
+survivorBtn.Size = UDim2.new(0.9,0,0,36)
+survivorBtn.Text = "Survivor"
+survivorBtn.Font = Enum.Font.SourceSans
+survivorBtn.TextSize = 15
+survivorBtn.TextColor3 = Color3.new(1,1,1)
+survivorBtn.BackgroundColor3 = Color3.fromRGB(120,70,180)
+survivorBtn.BackgroundTransparency = 0.15
+survivorBtn.BorderSizePixel = 0
+Instance.new("UICorner", survivorBtn).CornerRadius = UDim.new(0,8)
 
-aimBtn.MouseButton1Click:Connect(function()
+survivorBtn.MouseButton1Click:Connect(function()
     clearRight()
-
     local label = Instance.new("TextLabel", right)
     label.Size = UDim2.new(1,-20,0,30)
     label.Position = UDim2.new(0,10,0,10)
     label.BackgroundTransparency = 1
-    label.Text = "AIM ASSIST"
+    label.Text = "SURVIVOR OPTIONS"
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = 16
+    label.TextColor3 = Color3.new(1,1,1)
+
+    local toggle = Instance.new("TextButton", right)
+    toggle.Size = UDim2.new(0,220,0,36)
+    toggle.Position = UDim2.new(0,10,0,60)
+    toggle.Font = Enum.Font.SourceSans
+    toggle.TextSize = 14
+    toggle.TextColor3 = Color3.new(1,1,1)
+    toggle.BorderSizePixel = 0
+    Instance.new("UICorner", toggle).CornerRadius = UDim.new(0,8)
+
+    local aimStatus = false
+    local function update()
+        toggle.Text = aimStatus and "Aim Assist : ON" or "Aim Assist : OFF"
+        toggle.BackgroundColor3 = aimStatus and Color3.fromRGB(0,180,120) or Color3.fromRGB(120,70,180)
+    end
+
+    update()
+
+    toggle.MouseButton1Click:Connect(function()
+        aimStatus = not aimStatus
+        update()
+        if _G.ToggleAimAssist then
+            _G.ToggleAimAssist(aimStatus)
+        end
+    end)
+end)
+
+--========================
+-- EVENT TAB BUTTON
+--========================
+local eventEnabled = false
+local eventBtn = Instance.new("TextButton", left)
+eventBtn.Size = UDim2.new(0.9,0,0,36)
+eventBtn.Text = "Event"
+eventBtn.Font = Enum.Font.SourceSans
+eventBtn.TextSize = 15
+eventBtn.TextColor3 = Color3.new(1,1,1)
+eventBtn.BackgroundColor3 = Color3.fromRGB(120,70,180)
+eventBtn.BackgroundTransparency = 0.15
+eventBtn.BorderSizePixel = 0
+Instance.new("UICorner", eventBtn).CornerRadius = UDim.new(0,8)
+
+eventBtn.MouseButton1Click:Connect(function()
+    clearRight()
+    local label = Instance.new("TextLabel", right)
+    label.Size = UDim2.new(1,-20,0,30)
+    label.Position = UDim2.new(0,10,0,10)
+    label.BackgroundTransparency = 1
+    label.Text = "EVENT - CHRISTMAS"
     label.Font = Enum.Font.SourceSansBold
     label.TextSize = 16
     label.TextColor3 = Color3.new(1,1,1)
@@ -186,17 +236,17 @@ aimBtn.MouseButton1Click:Connect(function()
     Instance.new("UICorner", toggle).CornerRadius = UDim.new(0,8)
 
     local function update()
-        toggle.Text = aimEnabled and "Aim Assist : ON" or "Aim Assist : OFF"
-        toggle.BackgroundColor3 = aimEnabled and Color3.fromRGB(0,180,120) or Color3.fromRGB(120,70,180)
+        toggle.Text = eventEnabled and "Event Assist : ON" or "Event Assist : OFF"
+        toggle.BackgroundColor3 = eventEnabled and Color3.fromRGB(0,180,120) or Color3.fromRGB(120,70,180)
     end
 
     update()
 
     toggle.MouseButton1Click:Connect(function()
-        aimEnabled = not aimEnabled
+        eventEnabled = not eventEnabled
         update()
-        if _G.ToggleAimAssist then
-            _G.ToggleAimAssist(aimEnabled)
+        if _G.ToggleEvent then
+            _G.ToggleEvent(eventEnabled)
         end
     end)
 end)
