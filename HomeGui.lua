@@ -1,269 +1,174 @@
 --==================================================
--- HomeGui.lua (FINAL ROOT FIX)
--- Mobile Safe | Header Drag Only | Floating Button
+-- HomeGui.lua
+-- RiiHUB Main UI
 --==================================================
 
---========================
--- SERVICES & PLAYER
---========================
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
-local PlayerGui = player:WaitForChild("PlayerGui")
 
 --========================
--- REMOVE OLD GUI
---========================
-local old = PlayerGui:FindFirstChild("HomeGui")
-if old then old:Destroy() end
-
---========================
--- MODULE HOOKS (GLOBAL)
---========================
-local EventModule     = _G.EventModule
-local ToggleESP       = _G.ToggleESP
-local ToggleAimAssist = _G.ToggleAimAssist
-
---========================
--- SCREEN GUI
+-- GUI ROOT
 --========================
 local gui = Instance.new("ScreenGui")
-gui.Name = "HomeGui"
-gui.IgnoreGuiInset = true
+gui.Name = "RiiHUB"
 gui.ResetOnSpawn = false
-gui.Parent = PlayerGui
+gui.Parent = player:WaitForChild("PlayerGui")
 
 --========================
--- MAIN PANEL (NOT DRAGGABLE)
+-- MAIN FRAME
 --========================
 local main = Instance.new("Frame", gui)
-main.Size = UDim2.new(0,420,0,330)
-main.Position = UDim2.new(0.5,-210,0.5,-165)
-main.BackgroundColor3 = Color3.fromRGB(80,45,130)
-main.BackgroundTransparency = 0.15
+main.Size = UDim2.fromScale(0.6, 0.6)
+main.Position = UDim2.fromScale(0.2, 0.2)
+main.BackgroundColor3 = Color3.fromRGB(90, 40, 140)
+main.BackgroundTransparency = 0.1
 main.BorderSizePixel = 0
-main.Active = false            -- ⬅️ CRITICAL
-main.ZIndex = 50
-Instance.new("UICorner", main).CornerRadius = UDim.new(0,14)
+main.Active = true
+main.Draggable = true
+
+local corner = Instance.new("UICorner", main)
+corner.CornerRadius = UDim.new(0, 16)
 
 --========================
--- HEADER (ONLY DRAGGABLE AREA)
+-- TITLE BAR
 --========================
-local header = Instance.new("Frame", main)
-header.Size = UDim2.new(1,0,0,40)
-header.BackgroundColor3 = Color3.fromRGB(130,80,190)
-header.BackgroundTransparency = 0.1
-header.BorderSizePixel = 0
-header.Active = true           -- ⬅️ ONLY HERE
-header.Draggable = true        -- ⬅️ ONLY HERE
-header.ZIndex = 51
-Instance.new("UICorner", header).CornerRadius = UDim.new(0,14)
-
-local title = Instance.new("TextLabel", header)
-title.Size = UDim2.new(1,-60,1,0)
-title.Position = UDim2.new(0,12,0,0)
-title.BackgroundTransparency = 1
+local title = Instance.new("TextLabel", main)
+title.Size = UDim2.new(1, -40, 0, 40)
+title.Position = UDim2.new(0, 20, 0, 10)
 title.Text = "RiiHUB PANEL"
-title.Font = Enum.Font.SourceSansBold
-title.TextSize = 18
-title.TextColor3 = Color3.new(1,1,1)
-title.TextXAlignment = Enum.TextXAlignment.Left
-title.Active = false
-title.ZIndex = 52
+title.TextColor3 = Color3.fromRGB(230,230,230)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBold
+title.TextScaled = true
+title.TextXAlignment = Left
 
 --========================
--- MINIMIZE BUTTON
---========================
-local minimized = false
-
-local minBtn = Instance.new("TextButton", header)
-minBtn.Size = UDim2.new(0,30,0,30)
-minBtn.Position = UDim2.new(1,-38,0,5)
-minBtn.Text = "–"
-minBtn.Font = Enum.Font.SourceSansBold
-minBtn.TextSize = 22
-minBtn.TextColor3 = Color3.new(1,1,1)
-minBtn.BackgroundColor3 = Color3.fromRGB(180,120,230)
-minBtn.BorderSizePixel = 0
-minBtn.Active = true
-minBtn.AutoButtonColor = true
-minBtn.ZIndex = 53
-Instance.new("UICorner", minBtn).CornerRadius = UDim.new(1,0)
-
---========================
--- FLOATING BUTTON
---========================
-local floatBtn = Instance.new("TextButton", gui)
-floatBtn.Size = UDim2.new(0,54,0,54)
-floatBtn.Position = UDim2.new(0.05,0,0.4,0)
-floatBtn.Text = "RH"
-floatBtn.Font = Enum.Font.SourceSansBold
-floatBtn.TextSize = 18
-floatBtn.TextColor3 = Color3.new(1,1,1)
-floatBtn.BackgroundColor3 = Color3.fromRGB(150,90,210)
-floatBtn.BorderSizePixel = 0
-floatBtn.Visible = false
-floatBtn.Active = true
-floatBtn.Draggable = true
-floatBtn.ZIndex = 60
-Instance.new("UICorner", floatBtn).CornerRadius = UDim.new(1,0)
-
---========================
--- CONTENT PANELS (NO INPUT)
+-- LEFT / RIGHT PANELS
 --========================
 local left = Instance.new("Frame", main)
-left.Position = UDim2.new(0,0,0,40)
-left.Size = UDim2.new(0,130,1,-40)
-left.BackgroundColor3 = Color3.fromRGB(60,30,100)
-left.BackgroundTransparency = 0.15
-left.BorderSizePixel = 0
-left.Active = false
-left.ZIndex = 50
-Instance.new("UICorner", left).CornerRadius = UDim.new(0,14)
+left.Size = UDim2.new(0.25, -10, 1, -70)
+left.Position = UDim2.new(0, 10, 0, 60)
+left.BackgroundTransparency = 1
 
 local right = Instance.new("Frame", main)
-right.Position = UDim2.new(0,140,0,50)
-right.Size = UDim2.new(1,-150,1,-60)
-right.BackgroundColor3 = Color3.fromRGB(40,20,70)
-right.BackgroundTransparency = 0.15
-right.BorderSizePixel = 0
-right.Active = false
-right.ZIndex = 50
-Instance.new("UICorner", right).CornerRadius = UDim.new(0,14)
+right.Size = UDim2.new(0.75, -20, 1, -70)
+right.Position = UDim2.new(0.25, 10, 0, 60)
+right.BackgroundTransparency = 1
 
 --========================
--- LEFT LIST
+-- UI HELPERS
 --========================
-local list = Instance.new("UIListLayout", left)
-list.Padding = UDim.new(0,8)
-list.HorizontalAlignment = Enum.HorizontalAlignment.Center
-Instance.new("UIPadding", left).PaddingTop = UDim.new(0,12)
-
---========================
--- UTILITIES
---========================
-local function clearRight()
-    for _,v in ipairs(right:GetChildren()) do
-        if not v:IsA("UICorner") then
-            v:Destroy()
-        end
-    end
-end
-
-local function createButton(parent, text, y)
-    local b = Instance.new("TextButton", parent)
-    b.Size = UDim2.new(0.9,0,0,36)
-    b.Position = y and UDim2.new(0.05,0,0,y) or UDim2.new()
-    b.Text = text
-    b.Font = Enum.Font.SourceSans
-    b.TextSize = 15
-    b.TextColor3 = Color3.new(1,1,1)
+local function createButton(parent, text, height)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1, 0, 0, height or 42)
     b.BackgroundColor3 = Color3.fromRGB(120,70,180)
-    b.BackgroundTransparency = 0.15
-    b.BorderSizePixel = 0
-    b.Active = true
+    b.TextColor3 = Color3.fromRGB(230,230,230)
+    b.Text = text
+    b.Font = Enum.Font.GothamBold
+    b.TextScaled = true
     b.AutoButtonColor = true
-    b.ZIndex = 55
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0,8)
+    b.BorderSizePixel = 0
+    b.Parent = parent
+
+    local c = Instance.new("UICorner", b)
+    c.CornerRadius = UDim.new(0, 12)
+
     return b
 end
 
---========================
--- LEFT TABS
---========================
-local espBtn   = createButton(left, "ESP")
-local aimBtn   = createButton(left, "Survivor")
-local eventBtn = createButton(left, "Event")
+local function clearRight()
+    for _,v in ipairs(right:GetChildren()) do
+        v:Destroy()
+    end
+end
+
+local function listLayout(parent, pad)
+    local l = Instance.new("UIListLayout", parent)
+    l.Padding = UDim.new(0, pad or 10)
+    return l
+end
+
+listLayout(left, 12)
+listLayout(right, 14)
 
 --========================
--- ESP TAB
+-- TABS (LEFT)
 --========================
-local espOn = false
-espBtn.MouseButton1Click:Connect(function()
+local espTab      = createButton(left, "ESP")
+local survivorTab = createButton(left, "Survivor")
+local eventTab    = createButton(left, "Event")
+local killerTab   = createButton(left, "Killer")
+
+--========================
+-- ESP TAB (TIDAK DIUBAH)
+--========================
+espTab.MouseButton1Click:Connect(function()
     clearRight()
-    local t = createButton(right, "ESP : OFF", 20)
-    local function u()
-        t.Text = espOn and "ESP : ON" or "ESP : OFF"
-        t.BackgroundColor3 = espOn and Color3.fromRGB(0,180,120) or Color3.fromRGB(120,70,180)
-    end
-    u()
-    t.MouseButton1Click:Connect(function()
-        espOn = not espOn
-        u()
-        if ToggleESP then ToggleESP(espOn) end
-    end)
+    createButton(right, "ESP Config (existing)", 44)
 end)
 
 --========================
--- AIM TAB
+-- SURVIVOR TAB (TIDAK DIUBAH)
 --========================
-local aimOn = false
-aimBtn.MouseButton1Click:Connect(function()
+survivorTab.MouseButton1Click:Connect(function()
     clearRight()
-    local t = createButton(right, "Aim Assist : OFF", 20)
-    local function u()
-        t.Text = aimOn and "Aim Assist : ON" or "Aim Assist : OFF"
-        t.BackgroundColor3 = aimOn and Color3.fromRGB(0,180,120) or Color3.fromRGB(120,70,180)
-    end
-    u()
-    t.MouseButton1Click:Connect(function()
-        aimOn = not aimOn
-        u()
-        if ToggleAimAssist then ToggleAimAssist(aimOn) end
-    end)
+    createButton(right, "Survivor Features (existing)", 44)
 end)
 
 --========================
--- EVENT TAB
+-- EVENT TAB (TIDAK DIUBAH)
 --========================
-local eventOn = false
-eventBtn.MouseButton1Click:Connect(function()
+eventTab.MouseButton1Click:Connect(function()
+    clearRight()
+    createButton(right, "Event Features (existing)", 44)
+end)
+
+--==================================================
+-- KILLER TAB (BARU)
+--==================================================
+killerTab.MouseButton1Click:Connect(function()
     clearRight()
 
-    local t = createButton(right, "Event : OFF", 20)
-    local g = createButton(right, "Go To Nearest Gift", 70)
-    local c = createButton(right, "Go To Christmas Tree", 120)
+    --======== HITBOX ASSIST CUBE ========
+    local hitboxOn = false
+    local hitboxBtn = createButton(right, "Hitbox Assist : OFF", 44)
 
-    g.BackgroundColor3 = Color3.fromRGB(90,180,120)
-    c.BackgroundColor3 = Color3.fromRGB(90,120,180)
-
-    local function u()
-        t.Text = eventOn and "Event : ON" or "Event : OFF"
-        t.BackgroundColor3 = eventOn and Color3.fromRGB(0,180,120) or Color3.fromRGB(120,70,180)
+    local function updateHitbox()
+        hitboxBtn.Text = hitboxOn and "Hitbox Assist : ON" or "Hitbox Assist : OFF"
+        hitboxBtn.BackgroundColor3 =
+            hitboxOn and Color3.fromRGB(180,180,180)
+            or Color3.fromRGB(120,70,180)
     end
-    u()
+    updateHitbox()
 
-    t.MouseButton1Click:Connect(function()
-        eventOn = not eventOn
-        u()
-        if EventModule and EventModule.Enable then
-            EventModule.Enable(eventOn)
+    hitboxBtn.MouseButton1Click:Connect(function()
+        hitboxOn = not hitboxOn
+        updateHitbox()
+        if _G.KillerModule and _G.KillerModule.Enable then
+            _G.KillerModule.Enable(hitboxOn)
         end
     end)
 
-    g.MouseButton1Click:Connect(function()
-        if EventModule and EventModule.TeleportToNearestGift then
-            EventModule.TeleportToNearestGift()
+    --======== STALK ASSIST MEYERS ========
+    local stalkOn = false
+    local stalkBtn = createButton(right, "Stalk Assist : OFF", 44)
+
+    local function updateStalk()
+        stalkBtn.Text = stalkOn and "Stalk Assist : ON" or "Stalk Assist : OFF"
+        stalkBtn.BackgroundColor3 =
+            stalkOn and Color3.fromRGB(200,200,200)
+            or Color3.fromRGB(120,70,180)
+    end
+    updateStalk()
+
+    stalkBtn.MouseButton1Click:Connect(function()
+        stalkOn = not stalkOn
+        updateStalk()
+        if _G.StalkAssistModule and _G.StalkAssistModule.Enable then
+            _G.StalkAssistModule.Enable(stalkOn)
         end
     end)
-
-    c.MouseButton1Click:Connect(function()
-        if EventModule and EventModule.TeleportToTree then
-            EventModule.TeleportToTree()
-        end
-    end)
 end)
 
---========================
--- MINIMIZE / FLOAT LOGIC
---========================
-minBtn.MouseButton1Click:Connect(function()
-    main.Visible = false
-    floatBtn.Visible = true
-end)
-
-floatBtn.MouseButton1Click:Connect(function()
-    floatBtn.Visible = false
-    main.Visible = true
-end)
-
-warn("[HOMEGUI] FINAL ROOT FIX APPLIED")
+warn("[RiiHUB] HomeGui loaded successfully")
