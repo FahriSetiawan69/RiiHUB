@@ -1,37 +1,22 @@
 -- =========================================
--- EventModule.lua (FINAL FIX)
--- Christmas Gift Event Helper
+-- EventModule.lua (AUTO TELEPORT PICKUP)
 -- =========================================
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
-local Character = nil
-local Root = nil
 
 local EventModule = {}
 EventModule.Enabled = false
 
--- ===============================
--- INTERNAL STATE
--- ===============================
+local Character, Root
 local gifts = {}
-local tree = nil
+local treeModel = nil
 local highlights = {}
 local connections = {}
 
 -- ===============================
 -- UTILS
 -- ===============================
-local function clearHighlights()
-	for _,h in pairs(highlights) do
-		if h and h.Parent then
-			h:Destroy()
-		end
-	end
-	highlights = {}
-end
-
 local function disconnectAll()
 	for _,c in pairs(connections) do
 		pcall(function() c:Disconnect() end)
@@ -39,43 +24,58 @@ local function disconnectAll()
 	connections = {}
 end
 
+local function clearHighlights()
+	for _,h in pairs(highlights) do
+		if h then h:Destroy() end
+	end
+	highlights = {}
+end
+
 local function updateCharacter()
 	Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 	Root = Character:WaitForChild("HumanoidRootPart")
 end
 
+local function getTeleportPart(model)
+	if not model then return nil end
+	if model.PrimaryPart then return model.PrimaryPart end
+	for _,v in ipairs(model:GetDescendants()) do
+		if v:IsA("BasePart") then
+			return v
+		end
+	end
+end
+
 -- ===============================
--- SCAN MAP (GAME MAP ONLY)
+-- SCAN MAP
 -- ===============================
 local function scanMap()
 	gifts = {}
-	tree = nil
-
-	local workspace = game:GetService("Workspace")
+	treeModel = nil
 
 	for _,obj in ipairs(workspace:GetDescendants()) do
 		if obj:IsA("Model") then
-			if obj.Name:lower():find("gift") then
+			local n = obj.Name:lower()
+			if n:find("gift") then
 				table.insert(gifts, obj)
-			elseif obj.Name:lower():find("tree") then
-				tree = obj
+			elseif n:find("tree") or n:find("christmas") then
+				treeModel = obj
 			end
 		end
 	end
 
-	print("[EVENT] Scan result | Gifts:", #gifts, "| Tree:", tree ~= nil)
+	print("[EVENT] Scan | Gifts:", #gifts, "| Tree:", treeModel and treeModel.Name)
 end
 
 -- ===============================
--- HIGHLIGHT GIFTS
+-- HIGHLIGHT
 -- ===============================
 local function highlightGifts()
 	clearHighlights()
-
 	for _,gift in ipairs(gifts) do
 		local h = Instance.new("Highlight")
-		h.FillColor = Color3.fromRGB(0, 255, 0)
-		h.OutlineColor = Color3.fromRGB(0, 180, 0)
+		h.FillColor = Color3.fromRGB(0,255,0)
+		h.OutlineColor = Color3.fromRGB(0,180,0)
 		h.FillTransparency = 0.75
 		h.Parent = gift
 		table.insert(highlights, h)
@@ -83,31 +83,34 @@ local function highlightGifts()
 end
 
 -- ===============================
--- TELEPORT LOGIC
+-- TELEPORT
 -- ===============================
 function EventModule.TeleportToNearestGift()
-	if not Root then return end
-	if #gifts == 0 then return end
+	if not Root or #gifts == 0 then return end
 
 	local nearest, dist = nil, math.huge
 	for _,gift in ipairs(gifts) do
-		if gift.PrimaryPart then
-			local d = (gift.PrimaryPart.Position - Root.Position).Magnitude
+		local part = getTeleportPart(gift)
+		if part then
+			local d = (part.Position - Root.Position).Magnitude
 			if d < dist then
 				dist = d
-				nearest = gift
+				nearest = part
 			end
 		end
 	end
 
-	if nearest and nearest.PrimaryPart then
-		Root.CFrame = nearest.PrimaryPart.CFrame * CFrame.new(0, 0, -3)
+	if nearest then
+		Root.CFrame = nearest.CFrame * CFrame.new(0, 0, -3)
 	end
 end
 
 function EventModule.TeleportToTree()
-	if not Root or not tree or not tree.PrimaryPart then return end
-	Root.CFrame = tree.PrimaryPart.CFrame * CFrame.new(0, 0, -3)
+	if not Root or not treeModel then return end
+	local part = getTeleportPart(treeModel)
+	if part then
+		Root.CFrame = part.CFrame * CFrame.new(0, 0, -4)
+	end
 end
 
 -- ===============================
@@ -116,43 +119,69 @@ end
 local function createFloatingButtons()
 	local gui = LocalPlayer.PlayerGui:WaitForChild("RiiHUB_GUI")
 
-	local giftBtn = Instance.new("TextButton", gui)
-	giftBtn.Name = "EventGiftBtn"
-	giftBtn.Size = UDim2.fromOffset(110, 44)
-	giftBtn.Position = UDim2.fromScale(0.75, 0.75)
-	giftBtn.Text = "Gift"
-	giftBtn.Font = Enum.Font.GothamBold
-	giftBtn.TextSize = 16
-	giftBtn.BackgroundColor3 = Color3.fromRGB(0, 180, 120)
-	giftBtn.TextColor3 = Color3.new(1,1,1)
-	Instance.new("UICorner", giftBtn).CornerRadius = UDim.new(0,12)
+	local function makeBtn(name, text, pos, color)
+		local b = Instance.new("TextButton", gui)
+		b.Name = name
+		b.Size = UDim2.fromOffset(120, 46)
+		b.Position = pos
+		b.Text = text
+		b.Font = Enum.Font.GothamBold
+		b.TextSize = 16
+		b.TextColor3 = Color3.new(1,1,1)
+		b.BackgroundColor3 = color
+		b.Active = true
+		b.Draggable = true
+		b.ZIndex = 9999
+		Instance.new("UICorner", b).CornerRadius = UDim.new(0,14)
+		return b
+	end
 
-	local treeBtn = Instance.new("TextButton", gui)
-	treeBtn.Name = "EventTreeBtn"
-	treeBtn.Size = UDim2.fromOffset(110, 44)
-	treeBtn.Position = UDim2.fromScale(0.75, 0.83)
-	treeBtn.Text = "Tree"
-	treeBtn.Font = Enum.Font.GothamBold
-	treeBtn.TextSize = 16
-	treeBtn.BackgroundColor3 = Color3.fromRGB(180, 120, 0)
-	treeBtn.TextColor3 = Color3.new(1,1,1)
-	Instance.new("UICorner", treeBtn).CornerRadius = UDim.new(0,12)
+	local giftBtn = makeBtn(
+		"EventGiftBtn",
+		"Gift",
+		UDim2.fromScale(0.72, 0.72),
+		Color3.fromRGB(0,180,120)
+	)
+
+	local treeBtn = makeBtn(
+		"EventTreeBtn",
+		"Tree",
+		UDim2.fromScale(0.72, 0.80),
+		Color3.fromRGB(180,120,0)
+	)
 
 	giftBtn.MouseButton1Click:Connect(EventModule.TeleportToNearestGift)
 	treeBtn.MouseButton1Click:Connect(EventModule.TeleportToTree)
-
-	table.insert(connections, giftBtn.Destroying:Connect(function() end))
-	table.insert(connections, treeBtn.Destroying:Connect(function() end))
 end
 
 local function removeFloatingButtons()
 	local gui = LocalPlayer.PlayerGui:FindFirstChild("RiiHUB_GUI")
 	if not gui then return end
-
 	for _,n in ipairs({"EventGiftBtn","EventTreeBtn"}) do
 		local b = gui:FindFirstChild(n)
 		if b then b:Destroy() end
 	end
+end
+
+-- ===============================
+-- AUTO TELEPORT ON PICKUP (INTI)
+-- ===============================
+local function setupAutoTeleport()
+	if not Character then return end
+
+	connections[#connections+1] =
+		Character.ChildAdded:Connect(function(obj)
+			if not EventModule.Enabled then return end
+
+			if obj:IsA("Tool") then
+				local name = obj.Name:lower()
+				if name:find("gift") or name:find("present") then
+					task.wait(0.15) -- pastikan pickup selesai
+					print("[EVENT] Gift picked up → auto teleport to tree")
+					EventModule.TeleportToTree()
+				end
+			end
+		end)
 end
 
 -- ===============================
@@ -167,13 +196,15 @@ function EventModule.Enable(state)
 		scanMap()
 		highlightGifts()
 		createFloatingButtons()
+		setupAutoTeleport()
 
 		connections[#connections+1] =
 			LocalPlayer.CharacterAdded:Connect(function()
 				updateCharacter()
+				setupAutoTeleport()
 			end)
 
-		print("[EVENT] Enabled")
+		print("[EVENT] Enabled (auto teleport ON)")
 	else
 		clearHighlights()
 		removeFloatingButtons()
@@ -183,18 +214,13 @@ function EventModule.Enable(state)
 end
 
 -- ===============================
--- GLOBAL ENTRY POINT (INI KUNCINYA)
+-- GLOBAL ENTRY
 -- ===============================
 _G.ToggleEvent = function(state)
 	EventModule.Enable(state)
 end
 
-_G.TeleportNearestGift = function()
-	EventModule.TeleportToNearestGift()
-end
-
-_G.TeleportTree = function()
-	EventModule.TeleportToTree()
-end
+_G.TeleportNearestGift = EventModule.TeleportToNearestGift
+_G.TeleportTree = EventModule.TeleportToTree
 
 return EventModule
