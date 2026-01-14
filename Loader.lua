@@ -15,7 +15,7 @@ local BASE = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/refs/head
 
 local HomeGuiURL = BASE .. "HomeGui.lua"
 local ESPURL = BASE .. "ESPModule.lua"
-local RepairURL = BASE .. "RepairFailGuard.lua"
+local RepairURL = BASE .. "AimAssistModule.lua"
 
 -- Load Home GUI
 local ok, err = pcall(function()
@@ -44,8 +44,9 @@ ok, err = pcall(function()
     loadstring(game:HttpGet(RepairURL))()
 end)
 if not ok then
-    warn("Failed to load RepairFailGuard.lua:", err)
+    warn("Failed to load AimAssistModule.lua:", err)
     return
 end
 
 warn("RiiHUB loaded successfully")
+
