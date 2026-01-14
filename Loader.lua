@@ -1,68 +1,69 @@
 --==================================================
--- RiiHUB Loader (FIXED)
--- One Execute Loader | Delta Mobile Safe
+-- RiiHUB Loader.lua (FINAL FIX)
+-- Compatible with Delta / Mobile
 --==================================================
 
--- Prevent double load
+--========================
+-- ANTI DOUBLE LOAD
+--========================
 if _G.RiiHUB_LOADED then
-    warn("RiiHUB already loaded")
+    warn("[RiiHUB] Loader already executed")
     return
 end
 _G.RiiHUB_LOADED = true
 
--- Base URL
-local BASE = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/refs/heads/main/"
+warn("[RiiHUB] Loader started")
 
-local HomeGuiURL       = BASE .. "HomeGui.lua"
-local ESPURL           = BASE .. "ESPModule.lua"
-local AimAssistURL     = BASE .. "AimAssistModule.lua"
-local EventModuleURL   = BASE .. "EventModule.lua"
+--========================
+-- BASE RAW GITHUB URL (CORRECT)
+--========================
+local BASE = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/"
 
--- Load Home GUI
-do
-    local ok, err = pcall(function()
-        loadstring(game:HttpGet(HomeGuiURL))()
-    end)
-    if not ok then
-        warn("Failed to load HomeGui.lua:", err)
-        return
+--========================
+-- FILE URLS
+--========================
+local ESP_URL       = BASE .. "ESPModule.lua"
+local AIM_URL       = BASE .. "AimAssistModule.lua"
+local EVENT_URL     = BASE .. "EventModule.lua"
+local HOMEGUI_URL   = BASE .. "HomeGui.lua"
+
+--========================
+-- SAFE LOAD FUNCTION
+--========================
+local function safeLoad(url, name)
+    warn("[RiiHUB] Loading:", name)
+    local src = game:HttpGet(url)
+    if not src or #src < 20 then
+        warn("[RiiHUB] FAILED to load:", name, "(empty response)")
+        return false
     end
-end
-task.wait(0.25)
 
--- Load ESP Module
-do
-    local ok, err = pcall(function()
-        loadstring(game:HttpGet(ESPURL))()
-    end)
-    if not ok then
-        warn("Failed to load ESPModule.lua:", err)
-        return
+    local fn, err = loadstring(src)
+    if not fn then
+        warn("[RiiHUB] COMPILE ERROR:", name, err)
+        return false
     end
-end
-task.wait(0.25)
 
--- Load Aim Assist Module
-do
-    local ok, err = pcall(function()
-        loadstring(game:HttpGet(AimAssistURL))()
-    end)
+    local ok, runtimeErr = pcall(fn)
     if not ok then
-        warn("Failed to load AimAssistModule.lua:", err)
-        return
+        warn("[RiiHUB] RUNTIME ERROR:", name, runtimeErr)
+        return false
     end
-end
-task.wait(0.25)
 
--- Load Event Module
-do
-    local ok, err = pcall(function()
-        loadstring(game:HttpGet(EventModuleURL))()
-    end)
-    if not ok then
-        warn("Failed to load EventModule.lua:", err)
-        return
-    end
+    warn("[RiiHUB] Loaded:", name)
+    return true
 end
 
-warn("RiiHUB loaded successfully")
+--========================
+-- LOAD MODULES (ORDER IS IMPORTANT)
+--========================
+safeLoad(ESP_URL,     "ESPModule.lua")
+safeLoad(AIM_URL,     "AimAssistModule.lua")
+safeLoad(EVENT_URL,   "EventModule.lua")
+
+--========================
+-- LOAD GUI LAST
+--========================
+safeLoad(HOMEGUI_URL, "HomeGui.lua")
+
+warn("[RiiHUB] Loader finished successfully")
