@@ -15,7 +15,8 @@ local BASE = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/refs/head
 
 local HomeGuiURL = BASE .. "HomeGui.lua"
 local ESPURL = BASE .. "ESPModule.lua"
-local RepairURL = BASE .. "AimAssistModule.lua"
+local AimAssistURL = BASE .. "AimAssistModule.lua"
+local EventURL = Base .. "EventModule.lua"
 
 -- Load Home GUI
 local ok, err = pcall(function()
@@ -48,5 +49,17 @@ if not ok then
     return
 end
 
+task.wait(0.25)
+
+-- Load Event Module
+ok, err = pcall(function()
+    loadstring(game:HttpGet(RepairURL))()
+end)
+if not ok then
+    warn("Failed to load EventModule.lua:", err)
+    return
+end
+
 warn("RiiHUB loaded successfully")
+
 
