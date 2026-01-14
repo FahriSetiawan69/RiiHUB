@@ -1,266 +1,162 @@
---========================================
--- RiiHUB Event Module (Christmas)
--- FINAL • STEALTH • FAST • MAP-ONLY
---========================================
+--==================================================
+-- EventModule.lua (DEBUG MODE - RAY FIXED)
+-- Raycast ignores own avatar completely
+--==================================================
 
-local EventModule = {}
-EventModule.Enabled = false
-
--- Services
 local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
 
--- Player
 local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- State
-local connections = {}
-local giftHighlights = {}
-local floatingGui
-local mapCtx -- { map, chris }
+--==================================================
+-- DEBUG LOG (DELTA CONSOLE)
+--==================================================
+print("[EventModule][DEBUG] Script executed")
+warn("[EventModule][DEBUG] Raycast ignores local avatar")
 
---==============================
--- LOG
---==============================
-local function log(msg)
-    print("[RiiHUB EVENT]", msg)
+--==================================================
+-- CLEAR OLD DEBUG GUI
+--==================================================
+pcall(function()
+    local old = PlayerGui:FindFirstChild("EventModule_DEBUG_GUI")
+    if old then old:Destroy() end
+end)
+
+--==================================================
+-- ROOT GUI
+--==================================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "EventModule_DEBUG_GUI"
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.ResetOnSpawn = false
+ScreenGui.DisplayOrder = 1000
+ScreenGui.Parent = PlayerGui
+
+--==================================================
+-- TOP-LEFT INDICATOR
+--==================================================
+local Indicator = Instance.new("TextLabel")
+Indicator.Size = UDim2.fromOffset(240, 30)
+Indicator.Position = UDim2.fromOffset(10, 10)
+Indicator.BackgroundColor3 = Color3.fromRGB(120, 60, 180)
+Indicator.BackgroundTransparency = 0.2
+Indicator.Text = "EventModule DEBUG ACTIVE"
+Indicator.TextColor3 = Color3.new(1,1,1)
+Indicator.Font = Enum.Font.GothamBold
+Indicator.TextSize = 14
+Indicator.Parent = ScreenGui
+Instance.new("UICorner", Indicator)
+
+--==================================================
+-- CROSSHAIR (CENTER)
+--==================================================
+local Crosshair = Instance.new("Frame")
+Crosshair.Size = UDim2.fromOffset(20, 20)
+Crosshair.Position = UDim2.fromScale(0.5, 0.5)
+Crosshair.AnchorPoint = Vector2.new(0.5, 0.5)
+Crosshair.BackgroundTransparency = 1
+Crosshair.Parent = ScreenGui
+
+local function drawLine(size, pos)
+    local l = Instance.new("Frame")
+    l.Size = size
+    l.Position = pos
+    l.BackgroundColor3 = Color3.fromRGB(200, 150, 255)
+    l.BorderSizePixel = 0
+    l.Parent = Crosshair
 end
 
---==============================
--- SAFE MAP WAIT (NO LOBBY)
---==============================
-local function waitForGameMap(timeout)
-    timeout = timeout or 40
-    local t0 = tick()
-    while tick() - t0 < timeout do
-        local map = Workspace:FindFirstChild("Map")
-        if map then
-            local chris = map:FindFirstChild("chris")
-            local trees = chris and chris:FindFirstChild("ChristmasTrees")
-            if chris and trees then
-                return { map = map, chris = chris }
-            end
-        end
-        task.wait(0.3)
-    end
-    return nil
-end
+drawLine(UDim2.fromOffset(2, 20), UDim2.fromOffset(9, 0))
+drawLine(UDim2.fromOffset(20, 2), UDim2.fromOffset(0, 9))
 
---==============================
--- UTILS
---==============================
-local function getChar()
-    return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-end
-
-local function getRoot()
-    return getChar():WaitForChild("HumanoidRootPart")
-end
-
-local function getModelCF(model)
-    local cf = model:GetBoundingBox()
-    return cf
-end
-
---==============================
--- FIND CHRISTMAS TREE (MAP ONLY)
---==============================
-local function getChristmasTree(chris)
-    local root = chris:FindFirstChild("ChristmasTrees")
-    if not root then return nil end
-    for _, m in ipairs(root:GetChildren()) do
-        if m:IsA("Model") and m.Name == "ChristmasTree" then
-            return m
-        end
-    end
-    return nil
-end
-
---==============================
--- FIND GIFTS (MAP ONLY)
---==============================
-local function getGifts(chris)
-    local list = {}
-    for _, d in ipairs(chris:GetDescendants()) do
-        if d:IsA("Model") and d.Name == "Gift" then
-            table.insert(list, d)
-        end
-    end
-    return list
-end
-
---==============================
--- HIGHLIGHT GIFTS (LIGHT)
---==============================
-local function clearHighlights()
-    for _, h in ipairs(giftHighlights) do
-        h:Destroy()
-    end
-    giftHighlights = {}
-end
-
-local function highlightGifts(chris)
-    clearHighlights()
-    local gifts = getGifts(chris)
-    for _, g in ipairs(gifts) do
-        local h = Instance.new("Highlight")
-        h.FillColor = Color3.fromRGB(0,255,120)
-        h.OutlineColor = Color3.fromRGB(0,180,80)
-        h.FillTransparency = 0.6
-        h.OutlineTransparency = 0
-        h.Parent = g
-        table.insert(giftHighlights, h)
-    end
-    log("Gift highlighted: "..#giftHighlights)
-end
-
---==============================
--- STEALTH TELEPORT (2-STEP)
--- Step 1: micro offset (server tick sync)
--- Step 2: final snap (very fast)
---==============================
-local function stealthTeleport(cf)
-    local root = getRoot()
-    root.AssemblyLinearVelocity = Vector3.zero
-    root.CFrame = cf * CFrame.new(0, 0.15, 0) -- micro step
-    RunService.Heartbeat:Wait()
-    root.CFrame = cf -- final snap
-end
-
---==============================
--- TELEPORT TO NEAREST GIFT
---==============================
-local function teleportToNearestGift(chris)
-    local root = getRoot()
-    local gifts = getGifts(chris)
-    if #gifts == 0 then
-        log("No gifts found")
-        return
-    end
-
-    local best, dist = nil, math.huge
-    for _, g in ipairs(gifts) do
-        local cf = getModelCF(g)
-        local d = (root.Position - cf.Position).Magnitude
-        if d < dist then
-            dist = d
-            best = g
-        end
-    end
-
-    if best then
-        local targetCF = getModelCF(best) * CFrame.new(0,0,-2.5)
-        stealthTeleport(targetCF)
-        log("Stealth TP -> Gift")
-    end
-end
-
---==============================
--- AUTO TP AFTER PICKUP
---==============================
-local function hookAutoTeleport(chris)
-    local char = getChar()
-    connections.pick = char.ChildAdded:Connect(function(child)
-        if child:IsA("Tool") and child.Name == "Gift" then
-            task.wait(0.12) -- very short delay
-            local tree = getChristmasTree(chris)
-            if tree then
-                local cf = getModelCF(tree) * CFrame.new(0,0,-3.5)
-                stealthTeleport(cf)
-                log("Auto TP -> ChristmasTree")
-            else
-                log("Tree not found (map lock)")
-            end
-        end
-    end)
-end
-
---==============================
+--==================================================
 -- FLOATING BUTTON (DRAGGABLE)
---==============================
-local function createFloatingButton(chris)
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "RiiHUB_EventGUI"
-    gui.ResetOnSpawn = false
-    gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+--==================================================
+local FloatBtn = Instance.new("TextButton")
+FloatBtn.Size = UDim2.fromOffset(150, 44)
+FloatBtn.Position = UDim2.fromScale(0.05, 0.7)
+FloatBtn.Text = "GET DATA"
+FloatBtn.Font = Enum.Font.GothamBold
+FloatBtn.TextSize = 16
+FloatBtn.TextColor3 = Color3.new(1,1,1)
+FloatBtn.BackgroundColor3 = Color3.fromRGB(150, 90, 220)
+FloatBtn.BackgroundTransparency = 0.15
+FloatBtn.Parent = ScreenGui
+Instance.new("UICorner", FloatBtn)
 
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.fromOffset(160, 48)
-    btn.Position = UDim2.fromScale(0.5, 0.75)
-    btn.AnchorPoint = Vector2.new(0.5, 0.5)
-    btn.Text = "TELE TO GIFT"
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 15
-    btn.BackgroundColor3 = Color3.fromRGB(120,80,200)
-    btn.TextColor3 = Color3.new(1,1,1)
-    btn.Parent = gui
-    btn.ZIndex = 9999
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0,14)
-
-    -- Drag
-    local dragging, startPos, startInput
-    btn.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
+-- DRAG
+do
+    local dragging, startPos, dragStart
+    FloatBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch
+        or input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
-            startPos = btn.Position
-            startInput = i.Position
+            dragStart = input.Position
+            startPos = FloatBtn.Position
         end
     end)
-    btn.InputEnded:Connect(function()
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.Touch
+        or input.UserInputType == Enum.UserInputType.MouseMovement) then
+            local delta = input.Position - dragStart
+            FloatBtn.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function()
         dragging = false
     end)
-    connections.drag = RunService.RenderStepped:Connect(function()
-        if dragging then
-            local delta = UserInputService:GetMouseLocation() - startInput
-            btn.Position = startPos + UDim2.fromOffset(delta.X, delta.Y)
-        end
-    end)
-
-    btn.MouseButton1Click:Connect(function()
-        teleportToNearestGift(chris)
-    end)
-
-    floatingGui = gui
 end
 
---==============================
--- ENABLE / DISABLE
---==============================
-function EventModule.Enable()
-    if EventModule.Enabled then return end
-    EventModule.Enabled = true
-
-    log("Enable requested")
-    mapCtx = waitForGameMap(45)
-    if not mapCtx then
-        log("Map not ready, EventModule idle")
+--==================================================
+-- RAYCAST SCAN (IGNORE LOCAL AVATAR)
+--==================================================
+local function scanTarget()
+    local cam = Workspace.CurrentCamera
+    if not cam then
+        warn("[EventModule][DEBUG] Camera not ready")
         return
     end
 
-    highlightGifts(mapCtx.chris)
-    createFloatingButton(mapCtx.chris)
-    hookAutoTeleport(mapCtx.chris)
+    local origin = cam.CFrame.Position
+    local direction = cam.CFrame.LookVector * 500
 
-    log("EventModule ENABLED (map confirmed)")
-end
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+    params.IgnoreWater = true
 
-function EventModule.Disable()
-    EventModule.Enabled = false
-    clearHighlights()
-
-    if floatingGui then
-        floatingGui:Destroy()
-        floatingGui = nil
+    -- 🔴 PENTING: blacklist seluruh avatar
+    if LocalPlayer.Character then
+        params.FilterDescendantsInstances = { LocalPlayer.Character }
     end
 
-    for _, c in pairs(connections) do
-        c:Disconnect()
-    end
-    connections = {}
+    local result = Workspace:Raycast(origin, direction, params)
 
-    log("EventModule DISABLED")
+    if result then
+        local inst = result.Instance
+        print("====== EVENT DEBUG SCAN ======")
+        print("Instance Name :", inst.Name)
+        print("ClassName    :", inst.ClassName)
+        print("Parent       :", inst.Parent and inst.Parent.Name)
+        print("World Pos    :", inst.Position)
+        local model = inst:FindFirstAncestorOfClass("Model")
+        print("Model Root   :", model and model.Name)
+        print("==============================")
+    else
+        warn("[EventModule][DEBUG] Raycast hit nothing")
+    end
 end
 
-return EventModule
+--==================================================
+-- BUTTON CLICK
+--==================================================
+FloatBtn.MouseButton1Click:Connect(function()
+    print("[EventModule][DEBUG] Scan requested")
+    scanTarget()
+end)
