@@ -1,190 +1,229 @@
---==================================================
--- RiiHUB HomeGui.lua
--- FULL FIX VERSION (ANTI NIL / SAFE CALL)
---==================================================
+-- ===============================
+-- RiiHUB HomeGui (STATE SAFE FIX)
+-- ===============================
 
---=========== GUARD (ANTI DOUBLE LOAD) ===========
-if _G.RIIHUB_HOMEGUI_LOADED then
-    warn("[RiiHUB] HomeGui already loaded, aborting")
+if _G.RiiHUB_GUI_LOADED then
+    warn("RiiHUB already loaded")
     return
 end
-_G.RIIHUB_HOMEGUI_LOADED = true
+_G.RiiHUB_GUI_LOADED = true
 
---=========== SERVICES ===========
+-- ===============================
+-- GLOBAL STATE (PENTING)
+-- ===============================
+_G.RiiHUB_State = _G.RiiHUB_State or {
+    ESP = false,
+    AimAssist = false,
+    Event = false,
+    KillerHitbox = false,
+    KillerStalk = false
+}
+
+-- ===============================
+-- SERVICES
+-- ===============================
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
---=========== SAFE CALL HELPER ===========
-local function safeCall(fn, ...)
-    if typeof(fn) == "function" then
-        return pcall(fn, ...)
+-- ===============================
+-- CLEAN OLD GUI
+-- ===============================
+pcall(function()
+    if PlayerGui:FindFirstChild("RiiHUB_GUI") then
+        PlayerGui.RiiHUB_GUI:Destroy()
     end
-    return false
-end
+end)
 
---=========== SCREEN GUI ===========
+-- ===============================
+-- MAIN GUI
+-- ===============================
 local gui = Instance.new("ScreenGui")
-gui.Name = "RiiHUB"
+gui.Name = "RiiHUB_GUI"
 gui.ResetOnSpawn = false
-gui.Parent = player:WaitForChild("PlayerGui")
+gui.Parent = PlayerGui
 
---=========== MAIN PANEL ===========
+-- ===============================
+-- MAIN FRAME
+-- ===============================
 local main = Instance.new("Frame", gui)
-main.Name = "MainPanel"
-main.Size = UDim2.new(0, 420, 0, 280)
-main.Position = UDim2.new(0.05, 0, 0.25, 0)
-main.BackgroundColor3 = Color3.fromRGB(80, 45, 120)
-main.BackgroundTransparency = 0.15
-main.BorderSizePixel = 0
-main.Active = true
-main.Draggable = true
-Instance.new("UICorner", main).CornerRadius = UDim.new(0, 12)
+main.Size = UDim2.fromScale(0.65, 0.6)
+main.Position = UDim2.fromScale(0.5, 0.5)
+main.AnchorPoint = Vector2.new(0.5, 0.5)
+main.BackgroundColor3 = Color3.fromRGB(95, 60, 140)
+main.BackgroundTransparency = 0.1
+main.Visible = true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 22)
 
---=========== HEADER ===========
-local header = Instance.new("Frame", main)
-header.Size = UDim2.new(1, 0, 0, 36)
+-- ===============================
+-- HEADER
+-- ===============================
+local header = Instance.new("TextLabel", main)
+header.Size = UDim2.new(1, -60, 0, 50)
+header.Position = UDim2.new(0, 20, 0, 5)
+header.Text = "RiiHUB PANEL"
+header.TextColor3 = Color3.new(1,1,1)
+header.TextScaled = true
+header.Font = Enum.Font.GothamBold
 header.BackgroundTransparency = 1
+header.TextXAlignment = Left
 
-local title = Instance.new("TextLabel", header)
-title.Size = UDim2.new(1, -40, 1, 0)
-title.Position = UDim2.new(0, 10, 0, 0)
-title.Text = "RiiHUB PANEL"
-title.Font = Enum.Font.SourceSansBold
-title.TextSize = 18
-title.TextColor3 = Color3.new(1,1,1)
-title.BackgroundTransparency = 1
-title.TextXAlignment = Enum.TextXAlignment.Left
-
-local minimize = Instance.new("TextButton", header)
-minimize.Size = UDim2.new(0, 28, 0, 28)
-minimize.Position = UDim2.new(1, -34, 0, 4)
+-- ===============================
+-- MINIMIZE BUTTON
+-- ===============================
+local minimize = Instance.new("TextButton", main)
+minimize.Size = UDim2.fromOffset(40,40)
+minimize.Position = UDim2.new(1, -45, 0, 5)
 minimize.Text = "–"
-minimize.Font = Enum.Font.SourceSansBold
-minimize.TextSize = 22
+minimize.TextScaled = true
+minimize.Font = Enum.Font.GothamBold
 minimize.TextColor3 = Color3.new(1,1,1)
-minimize.BackgroundColor3 = Color3.fromRGB(160,110,220)
-minimize.BorderSizePixel = 0
+minimize.BackgroundTransparency = 0.3
+minimize.BackgroundColor3 = Color3.fromRGB(120,80,180)
 Instance.new("UICorner", minimize).CornerRadius = UDim.new(1,0)
 
---=========== LEFT PANEL ===========
-local left = Instance.new("Frame", main)
-left.Position = UDim2.new(0, 0, 0, 36)
-left.Size = UDim2.new(0, 130, 1, -36)
-left.BackgroundTransparency = 1
+-- ===============================
+-- TAB PANEL
+-- ===============================
+local tabs = Instance.new("Frame", main)
+tabs.Size = UDim2.new(0, 160, 1, -70)
+tabs.Position = UDim2.new(0, 10, 0, 60)
+tabs.BackgroundTransparency = 1
 
-local leftLayout = Instance.new("UIListLayout", left)
-leftLayout.Padding = UDim.new(0, 8)
-leftLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-Instance.new("UIPadding", left).PaddingTop = UDim.new(0, 12)
+local content = Instance.new("Frame", main)
+content.Size = UDim2.new(1, -180, 1, -70)
+content.Position = UDim2.new(0, 170, 0, 60)
+content.BackgroundTransparency = 1
 
---=========== RIGHT PANEL ===========
-local right = Instance.new("Frame", main)
-right.Position = UDim2.new(0, 140, 0, 46)
-right.Size = UDim2.new(1, -150, 1, -56)
-right.BackgroundTransparency = 1
-
---=========== HELPERS ===========
-local function clearRight()
-    for _,v in ipairs(right:GetChildren()) do
-        v:Destroy()
+-- ===============================
+-- UTIL
+-- ===============================
+local function clearContent()
+    for _,v in pairs(content:GetChildren()) do
+        if v:IsA("GuiObject") then v:Destroy() end
     end
 end
 
 local function makeButton(parent, text)
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(0.9, 0, 0, 36)
+    local b = Instance.new("TextButton", parent)
+    b.Size = UDim2.new(1, 0, 0, 42)
     b.Text = text
-    b.Font = Enum.Font.SourceSans
-    b.TextSize = 15
+    b.TextScaled = true
+    b.Font = Enum.Font.Gotham
     b.TextColor3 = Color3.new(1,1,1)
-    b.BackgroundColor3 = Color3.fromRGB(120,70,180)
-    b.BorderSizePixel = 0
-    b.Parent = parent
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0,8)
+    b.BackgroundColor3 = Color3.fromRGB(120,80,180)
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0,14)
     return b
 end
 
---=========== TAB CONTENT ===========
-local function tabESP()
-    clearRight()
-    local btn = makeButton(right, "ESP : OFF")
-    local state = false
+local function makeToggle(text, stateGetter, stateSetter, callback)
+    local btn = makeButton(content, "")
+    local function refresh()
+        btn.Text = text .. " : " .. (stateGetter() and "ON" or "OFF")
+    end
+    refresh()
     btn.MouseButton1Click:Connect(function()
-        state = not state
-        btn.Text = state and "ESP : ON" or "ESP : OFF"
-        safeCall(_G.ToggleESP, state)
+        stateSetter(not stateGetter())
+        refresh()
+        if callback then callback(stateGetter()) end
     end)
+end
+
+-- ===============================
+-- TAB LOGIC
+-- ===============================
+local function tabESP()
+    clearContent()
+    makeToggle(
+        "ESP",
+        function() return _G.RiiHUB_State.ESP end,
+        function(v) _G.RiiHUB_State.ESP = v end,
+        function(v)
+            if _G.ToggleESP then _G.ToggleESP(v) end
+        end
+    )
 end
 
 local function tabSurvivor()
-    clearRight()
-    local btn = makeButton(right, "Aim Assist : OFF")
-    local state = false
-    btn.MouseButton1Click:Connect(function()
-        state = not state
-        btn.Text = state and "Aim Assist : ON" or "Aim Assist : OFF"
-        safeCall(_G.ToggleAimAssist, state)
-    end)
+    clearContent()
+    makeToggle(
+        "Aim Assist",
+        function() return _G.RiiHUB_State.AimAssist end,
+        function(v) _G.RiiHUB_State.AimAssist = v end,
+        function(v)
+            if _G.ToggleAimAssist then _G.ToggleAimAssist(v) end
+        end
+    )
 end
 
 local function tabEvent()
-    clearRight()
-    local btn = makeButton(right, "Event Assist : OFF")
-    local state = false
-    btn.MouseButton1Click:Connect(function()
-        state = not state
-        btn.Text = state and "Event Assist : ON" or "Event Assist : OFF"
-        safeCall(_G.ToggleEvent, state)
-    end)
+    clearContent()
+    makeToggle(
+        "Event Helper",
+        function() return _G.RiiHUB_State.Event end,
+        function(v) _G.RiiHUB_State.Event = v end,
+        function(v)
+            if _G.ToggleEvent then _G.ToggleEvent(v) end
+        end
+    )
 end
 
 local function tabKiller()
-    clearRight()
-
-    local hitboxBtn = makeButton(right, "Hitbox Assist : OFF")
-    local hitbox = false
-    hitboxBtn.MouseButton1Click:Connect(function()
-        hitbox = not hitbox
-        hitboxBtn.Text = hitbox and "Hitbox Assist : ON" or "Hitbox Assist : OFF"
-        if _G.KillerModule and typeof(_G.KillerModule.Enable) == "function" then
-            safeCall(_G.KillerModule.Enable, hitbox)
+    clearContent()
+    makeToggle(
+        "Hitbox Assist",
+        function() return _G.RiiHUB_State.KillerHitbox end,
+        function(v) _G.RiiHUB_State.KillerHitbox = v end,
+        function(v)
+            if _G.ToggleKillerHitbox then _G.ToggleKillerHitbox(v) end
         end
-    end)
+    )
 
-    local stalkBtn = makeButton(right, "Stalk Assist : OFF")
-    local stalk = false
-    stalkBtn.MouseButton1Click:Connect(function()
-        stalk = not stalk
-        stalkBtn.Text = stalk and "Stalk Assist : ON" or "Stalk Assist : OFF"
-        if _G.StalkAssistModule and typeof(_G.StalkAssistModule.Enable) == "function" then
-            safeCall(_G.StalkAssistModule.Enable, stalk)
+    makeToggle(
+        "Stalk Assist",
+        function() return _G.RiiHUB_State.KillerStalk end,
+        function(v) _G.RiiHUB_State.KillerStalk = v end,
+        function(v)
+            if _G.ToggleStalkAssist then _G.ToggleStalkAssist(v) end
         end
-    end)
+    )
 end
 
---=========== TAB BUTTONS ===========
-makeButton(left, "ESP").MouseButton1Click:Connect(tabESP)
-makeButton(left, "Survivor").MouseButton1Click:Connect(tabSurvivor)
-makeButton(left, "Event").MouseButton1Click:Connect(tabEvent)
-makeButton(left, "Killer").MouseButton1Click:Connect(tabKiller)
+-- ===============================
+-- TAB BUTTONS
+-- ===============================
+local layout = Instance.new("UIListLayout", tabs)
+layout.Padding = UDim.new(0, 10)
 
---=========== FLOATING BUTTON ===========
+local function addTab(name, callback)
+    local b = makeButton(tabs, name)
+    b.MouseButton1Click:Connect(callback)
+end
+
+addTab("ESP", tabESP)
+addTab("Survivor", tabSurvivor)
+addTab("Event", tabEvent)
+addTab("Killer", tabKiller)
+
+-- ===============================
+-- DEFAULT TAB
+-- ===============================
+tabESP()
+
+-- ===============================
+-- FLOATING BUTTON
+-- ===============================
 local float = Instance.new("TextButton", gui)
-float.Size = UDim2.new(0, 50, 0, 50)
-float.Position = UDim2.new(0.03, 0, 0.5, 0)
+float.Size = UDim2.fromOffset(60,60)
+float.Position = UDim2.fromScale(0.05,0.5)
 float.Text = "Rii"
-float.Font = Enum.Font.SourceSansBold
-float.TextSize = 18
+float.TextScaled = true
+float.Font = Enum.Font.GothamBold
 float.TextColor3 = Color3.new(1,1,1)
-float.BackgroundColor3 = Color3.fromRGB(120,70,180)
-float.BorderSizePixel = 0
-float.Visible = false
-float.Active = true
-float.Draggable = true
-float.ZIndex = 999
+float.BackgroundColor3 = Color3.fromRGB(120,80,180)
 Instance.new("UICorner", float).CornerRadius = UDim.new(1,0)
+float.Visible = false
 
---=========== MINIMIZE LOGIC ===========
 minimize.MouseButton1Click:Connect(function()
     main.Visible = false
     float.Visible = true
@@ -195,4 +234,4 @@ float.MouseButton1Click:Connect(function()
     float.Visible = false
 end)
 
-warn("[RiiHUB] HomeGui loaded safely (no nil crash)")
+print("RiiHUB HomeGui loaded successfully")
