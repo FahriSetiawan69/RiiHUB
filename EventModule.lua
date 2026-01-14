@@ -1,22 +1,25 @@
 --========================================
--- RiiHUB Event Module (Christmas FINAL FIX)
--- SAFE MAP WAIT (NO INFINITE YIELD)
+-- RiiHUB Event Module (Christmas)
+-- FINAL • STEALTH • FAST • MAP-ONLY
 --========================================
 
 local EventModule = {}
 EventModule.Enabled = false
 
+-- Services
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
---==============================
--- STATE
---==============================
+-- Player
+local LocalPlayer = Players.LocalPlayer
+
+-- State
+local connections = {}
 local giftHighlights = {}
 local floatingGui
-local connections = {}
+local mapCtx -- { map, chris }
 
 --==============================
 -- LOG
@@ -26,35 +29,38 @@ local function log(msg)
 end
 
 --==============================
--- WAIT FOR MAP GAME (SAFE)
+-- SAFE MAP WAIT (NO LOBBY)
 --==============================
 local function waitForGameMap(timeout)
-    timeout = timeout or 30
-    local start = tick()
-
-    while tick() - start < timeout do
+    timeout = timeout or 40
+    local t0 = tick()
+    while tick() - t0 < timeout do
         local map = Workspace:FindFirstChild("Map")
         if map then
             local chris = map:FindFirstChild("chris")
-            if chris and chris:FindFirstChild("ChristmasTrees") then
-                return map, chris
+            local trees = chris and chris:FindFirstChild("ChristmasTrees")
+            if chris and trees then
+                return { map = map, chris = chris }
             end
         end
-        task.wait(0.5)
+        task.wait(0.3)
     end
-
     return nil
 end
 
 --==============================
 -- UTILS
 --==============================
-local function getCharacter()
+local function getChar()
     return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 end
 
-local function getModelCFrame(model)
-    local cf, _ = model:GetBoundingBox()
+local function getRoot()
+    return getChar():WaitForChild("HumanoidRootPart")
+end
+
+local function getModelCF(model)
+    local cf = model:GetBoundingBox()
     return cf
 end
 
@@ -64,10 +70,9 @@ end
 local function getChristmasTree(chris)
     local root = chris:FindFirstChild("ChristmasTrees")
     if not root then return nil end
-
-    for _, obj in ipairs(root:GetChildren()) do
-        if obj:IsA("Model") and obj.Name == "ChristmasTree" then
-            return obj
+    for _, m in ipairs(root:GetChildren()) do
+        if m:IsA("Model") and m.Name == "ChristmasTree" then
+            return m
         end
     end
     return nil
@@ -78,16 +83,16 @@ end
 --==============================
 local function getGifts(chris)
     local list = {}
-    for _, obj in ipairs(chris:GetDescendants()) do
-        if obj:IsA("Model") and obj.Name == "Gift" then
-            table.insert(list, obj)
+    for _, d in ipairs(chris:GetDescendants()) do
+        if d:IsA("Model") and d.Name == "Gift" then
+            table.insert(list, d)
         end
     end
     return list
 end
 
 --==============================
--- HIGHLIGHT GIFTS
+-- HIGHLIGHT GIFTS (LIGHT)
 --==============================
 local function clearHighlights()
     for _, h in ipairs(giftHighlights) do
@@ -99,90 +104,122 @@ end
 local function highlightGifts(chris)
     clearHighlights()
     local gifts = getGifts(chris)
-
-    for _, gift in ipairs(gifts) do
+    for _, g in ipairs(gifts) do
         local h = Instance.new("Highlight")
         h.FillColor = Color3.fromRGB(0,255,120)
         h.OutlineColor = Color3.fromRGB(0,180,80)
-        h.FillTransparency = 0.55
-        h.Parent = gift
+        h.FillTransparency = 0.6
+        h.OutlineTransparency = 0
+        h.Parent = g
         table.insert(giftHighlights, h)
     end
-
     log("Gift highlighted: "..#giftHighlights)
+end
+
+--==============================
+-- STEALTH TELEPORT (2-STEP)
+-- Step 1: micro offset (server tick sync)
+-- Step 2: final snap (very fast)
+--==============================
+local function stealthTeleport(cf)
+    local root = getRoot()
+    root.AssemblyLinearVelocity = Vector3.zero
+    root.CFrame = cf * CFrame.new(0, 0.15, 0) -- micro step
+    RunService.Heartbeat:Wait()
+    root.CFrame = cf -- final snap
 end
 
 --==============================
 -- TELEPORT TO NEAREST GIFT
 --==============================
-local function teleportToGift(chris)
-    local char = getCharacter()
-    local root = char:WaitForChild("HumanoidRootPart")
+local function teleportToNearestGift(chris)
+    local root = getRoot()
     local gifts = getGifts(chris)
-
     if #gifts == 0 then
         log("No gifts found")
         return
     end
 
-    local closest, dist = nil, math.huge
+    local best, dist = nil, math.huge
     for _, g in ipairs(gifts) do
-        local cf = getModelCFrame(g)
+        local cf = getModelCF(g)
         local d = (root.Position - cf.Position).Magnitude
         if d < dist then
             dist = d
-            closest = g
+            best = g
         end
     end
 
-    if closest then
-        root.CFrame = getModelCFrame(closest) * CFrame.new(0,0,-3)
-        log("Teleported to gift")
+    if best then
+        local targetCF = getModelCF(best) * CFrame.new(0,0,-2.5)
+        stealthTeleport(targetCF)
+        log("Stealth TP -> Gift")
     end
 end
 
 --==============================
--- AUTO TELEPORT AFTER PICKUP
+-- AUTO TP AFTER PICKUP
 --==============================
-local function setupAutoTeleport(chris)
-    local char = getCharacter()
-
-    connections.pickup = char.ChildAdded:Connect(function(child)
+local function hookAutoTeleport(chris)
+    local char = getChar()
+    connections.pick = char.ChildAdded:Connect(function(child)
         if child:IsA("Tool") and child.Name == "Gift" then
-            task.wait(0.2)
+            task.wait(0.12) -- very short delay
             local tree = getChristmasTree(chris)
             if tree then
-                char.HumanoidRootPart.CFrame =
-                    getModelCFrame(tree) * CFrame.new(0,0,-4)
-                log("Auto teleported to ChristmasTree")
+                local cf = getModelCF(tree) * CFrame.new(0,0,-3.5)
+                stealthTeleport(cf)
+                log("Auto TP -> ChristmasTree")
+            else
+                log("Tree not found (map lock)")
             end
         end
     end)
 end
 
 --==============================
--- FLOATING BUTTON
+-- FLOATING BUTTON (DRAGGABLE)
 --==============================
 local function createFloatingButton(chris)
     local gui = Instance.new("ScreenGui")
     gui.Name = "RiiHUB_EventGUI"
     gui.ResetOnSpawn = false
-    gui.Parent = LocalPlayer.PlayerGui
+    gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.fromOffset(160,50)
-    btn.Position = UDim2.fromScale(0.5,0.7)
-    btn.AnchorPoint = Vector2.new(0.5,0.5)
+    btn.Size = UDim2.fromOffset(160, 48)
+    btn.Position = UDim2.fromScale(0.5, 0.75)
+    btn.AnchorPoint = Vector2.new(0.5, 0.5)
     btn.Text = "TELE TO GIFT"
     btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 16
+    btn.TextSize = 15
     btn.BackgroundColor3 = Color3.fromRGB(120,80,200)
     btn.TextColor3 = Color3.new(1,1,1)
     btn.Parent = gui
+    btn.ZIndex = 9999
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0,14)
 
+    -- Drag
+    local dragging, startPos, startInput
+    btn.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            startPos = btn.Position
+            startInput = i.Position
+        end
+    end)
+    btn.InputEnded:Connect(function()
+        dragging = false
+    end)
+    connections.drag = RunService.RenderStepped:Connect(function()
+        if dragging then
+            local delta = UserInputService:GetMouseLocation() - startInput
+            btn.Position = startPos + UDim2.fromOffset(delta.X, delta.Y)
+        end
+    end)
+
     btn.MouseButton1Click:Connect(function()
-        teleportToGift(chris)
+        teleportToNearestGift(chris)
     end)
 
     floatingGui = gui
@@ -195,16 +232,16 @@ function EventModule.Enable()
     if EventModule.Enabled then return end
     EventModule.Enabled = true
 
-    log("Waiting for game map...")
-    local map, chris = waitForGameMap(40)
-    if not map then
-        log("Map not found, abort EventModule")
+    log("Enable requested")
+    mapCtx = waitForGameMap(45)
+    if not mapCtx then
+        log("Map not ready, EventModule idle")
         return
     end
 
-    highlightGifts(chris)
-    createFloatingButton(chris)
-    setupAutoTeleport(chris)
+    highlightGifts(mapCtx.chris)
+    createFloatingButton(mapCtx.chris)
+    hookAutoTeleport(mapCtx.chris)
 
     log("EventModule ENABLED (map confirmed)")
 end
