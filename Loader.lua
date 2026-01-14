@@ -1,16 +1,16 @@
 --==================================================
--- RiiHUB Loader (FINAL)
+-- RiiHUB Loader (FIXED)
 -- One Execute Loader | Delta Mobile Safe
 --==================================================
 
--- Anti double execute
+-- Prevent double load
 if _G.RiiHUB_LOADED then
     warn("RiiHUB already loaded")
     return
 end
 _G.RiiHUB_LOADED = true
 
--- URLs
+-- Base URL
 local BASE = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/refs/heads/main/"
 
 local HomeGuiURL       = BASE .. "HomeGui.lua"
