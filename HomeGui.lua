@@ -1,6 +1,6 @@
 --==================================================
--- HomeGui.lua (FINAL CLEAN)
--- Touch Safe | Floating Button | Delta Mobile
+-- HomeGui.lua (FINAL ROOT FIX)
+-- Mobile Safe | Header Drag Only | Floating Button
 --==================================================
 
 --========================
@@ -33,7 +33,7 @@ gui.ResetOnSpawn = false
 gui.Parent = PlayerGui
 
 --========================
--- MAIN PANEL
+-- MAIN PANEL (NOT DRAGGABLE)
 --========================
 local main = Instance.new("Frame", gui)
 main.Size = UDim2.new(0,420,0,330)
@@ -41,20 +41,21 @@ main.Position = UDim2.new(0.5,-210,0.5,-165)
 main.BackgroundColor3 = Color3.fromRGB(80,45,130)
 main.BackgroundTransparency = 0.15
 main.BorderSizePixel = 0
-main.Active = true
-main.Draggable = true
+main.Active = false            -- ⬅️ CRITICAL
 main.ZIndex = 50
 Instance.new("UICorner", main).CornerRadius = UDim.new(0,14)
 
 --========================
--- HEADER
+-- HEADER (ONLY DRAGGABLE AREA)
 --========================
 local header = Instance.new("Frame", main)
 header.Size = UDim2.new(1,0,0,40)
 header.BackgroundColor3 = Color3.fromRGB(130,80,190)
 header.BackgroundTransparency = 0.1
 header.BorderSizePixel = 0
-header.Active = false
+header.Active = true           -- ⬅️ ONLY HERE
+header.Draggable = true        -- ⬅️ ONLY HERE
+header.ZIndex = 51
 Instance.new("UICorner", header).CornerRadius = UDim.new(0,14)
 
 local title = Instance.new("TextLabel", header)
@@ -67,6 +68,7 @@ title.TextSize = 18
 title.TextColor3 = Color3.new(1,1,1)
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Active = false
+title.ZIndex = 52
 
 --========================
 -- MINIMIZE BUTTON
@@ -84,6 +86,7 @@ minBtn.BackgroundColor3 = Color3.fromRGB(180,120,230)
 minBtn.BorderSizePixel = 0
 minBtn.Active = true
 minBtn.AutoButtonColor = true
+minBtn.ZIndex = 53
 Instance.new("UICorner", minBtn).CornerRadius = UDim.new(1,0)
 
 --========================
@@ -105,7 +108,7 @@ floatBtn.ZIndex = 60
 Instance.new("UICorner", floatBtn).CornerRadius = UDim.new(1,0)
 
 --========================
--- CONTENT PANELS
+-- CONTENT PANELS (NO INPUT)
 --========================
 local left = Instance.new("Frame", main)
 left.Position = UDim2.new(0,0,0,40)
@@ -114,6 +117,7 @@ left.BackgroundColor3 = Color3.fromRGB(60,30,100)
 left.BackgroundTransparency = 0.15
 left.BorderSizePixel = 0
 left.Active = false
+left.ZIndex = 50
 Instance.new("UICorner", left).CornerRadius = UDim.new(0,14)
 
 local right = Instance.new("Frame", main)
@@ -123,6 +127,7 @@ right.BackgroundColor3 = Color3.fromRGB(40,20,70)
 right.BackgroundTransparency = 0.15
 right.BorderSizePixel = 0
 right.Active = false
+right.ZIndex = 50
 Instance.new("UICorner", right).CornerRadius = UDim.new(0,14)
 
 --========================
@@ -157,6 +162,7 @@ local function createButton(parent, text, y)
     b.BorderSizePixel = 0
     b.Active = true
     b.AutoButtonColor = true
+    b.ZIndex = 55
     Instance.new("UICorner", b).CornerRadius = UDim.new(0,8)
     return b
 end
@@ -251,15 +257,13 @@ end)
 -- MINIMIZE / FLOAT LOGIC
 --========================
 minBtn.MouseButton1Click:Connect(function()
-    minimized = true
     main.Visible = false
     floatBtn.Visible = true
 end)
 
 floatBtn.MouseButton1Click:Connect(function()
-    minimized = false
     floatBtn.Visible = false
     main.Visible = true
 end)
 
-warn("[HOMEGUI] FINAL GUI READY")
+warn("[HOMEGUI] FINAL ROOT FIX APPLIED")
