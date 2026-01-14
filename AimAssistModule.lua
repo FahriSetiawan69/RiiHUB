@@ -1,87 +1,88 @@
 --==================================================
--- AimAssistModule.lua
--- Hard-Lock Aim Assist (70%) - HOLD to lock
+-- AimAssistModule.lua (FINAL FIX)
+-- Hard-Lock 70% | HOLD only | Killer-only (Teams)
 -- R6 | Projectile Leading | Delta Mobile Safe
 --==================================================
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local Teams = game:GetService("Teams")
 local Workspace = game:GetService("Workspace")
 
-local player = Players.LocalPlayer
+local localPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
 --========================
 -- CONFIG
 --========================
-local MAGNET_STRENGTH = 0.70          -- 70% hard-lock
-local BASE_STRENGTH = 0.55            -- ramp-in awal saat mulai hold
-local RAMP_TIME = 0.25                -- waktu naik ke 70%
-local PROJECTILE_SPEED = 180          -- estimasi kecepatan peluru (sesuaikan jika perlu)
-local MAX_LOCK_ANGLE = math.rad(35)   -- tidak lock target di luar sudut wajar
+local MAGNET_STRENGTH = 0.70
+local BASE_STRENGTH   = 0.55
+local RAMP_TIME       = 0.25
+local HOLD_DELAY      = 0.12        -- gate agar tidak aktif terlalu dini
+local MAX_LOCK_ANGLE  = math.rad(35)
+local PROJECTILE_SPEED = 180         -- sesuaikan jika perlu
 
 --========================
 -- STATE
 --========================
 local enabled = false
-local holdingFire = false
+local holding = false
 local holdStart = 0
 
 --========================
--- INPUT DETECT (HOLD)
+-- INPUT (HOLD DETECT)
 --========================
--- Asumsi: tombol tembak = tap/hold layar (mouse/touch)
 UserInputService.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
-        holdingFire = true
+        holding = true
         holdStart = tick()
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input, gpe)
+UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1
     or input.UserInputType == Enum.UserInputType.Touch then
-        holdingFire = false
+        holding = false
     end
 end)
 
 --========================
--- TARGET ACQUISITION
+-- TARGETING (KILLER ONLY)
 --========================
-local function isKiller(model)
-    -- Heuristik aman: Humanoid + bukan player sendiri
-    if not model or not model:IsA("Model") then return false end
-    if model == player.Character then return false end
-    local hum = model:FindFirstChildOfClass("Humanoid")
-    return hum ~= nil
+local function isKillerPlayer(plr)
+    return plr
+        and plr ~= localPlayer
+        and plr.Team == Teams:FindFirstChild("Killer")
 end
 
-local function getTargetPart(model)
-    return model:FindFirstChild("Torso")
-        or model:FindFirstChild("HumanoidRootPart")
+local function getTargetPart(char)
+    return char:FindFirstChild("Torso")
+        or char:FindFirstChild("HumanoidRootPart")
 end
 
-local function getBestTarget()
-    local best, bestAngle
-    bestAngle = MAX_LOCK_ANGLE
+local function getBestKillerTarget()
+    local bestPart, bestAngle = nil, MAX_LOCK_ANGLE
 
-    for _,m in ipairs(Workspace:GetChildren()) do
-        if isKiller(m) then
-            local part = getTargetPart(m)
+    for _,plr in ipairs(Players:GetPlayers()) do
+        if isKillerPlayer(plr) and plr.Character then
+            local part = getTargetPart(plr.Character)
             if part then
                 local dir = (part.Position - camera.CFrame.Position).Unit
-                local angle = math.acos(math.clamp(camera.CFrame.LookVector:Dot(dir), -1, 1))
+                local angle = math.acos(
+                    math.clamp(camera.CFrame.LookVector:Dot(dir), -1, 1)
+                )
                 if angle <= bestAngle then
                     bestAngle = angle
-                    best = part
+                    bestPart = part
                 end
             end
         end
     end
-    return best
+
+    return bestPart
 end
 
 --========================
@@ -90,23 +91,23 @@ end
 local function predictPosition(part)
     local vel = part.AssemblyLinearVelocity
     local dist = (part.Position - camera.CFrame.Position).Magnitude
-    local travelTime = dist / PROJECTILE_SPEED
-    return part.Position + vel * travelTime
+    local t = dist / PROJECTILE_SPEED
+    return part.Position + vel * t
 end
 
 --========================
 -- CORE LOOP
 --========================
-RunService.RenderStepped:Connect(function(dt)
+RunService.RenderStepped:Connect(function()
     if not enabled then return end
-    if not holdingFire then return end
+    if not holding then return end
+    if (tick() - holdStart) < HOLD_DELAY then return end
 
-    local target = getBestTarget()
+    local target = getBestKillerTarget()
     if not target then return end
 
-    -- ramp strength
-    local t = math.clamp((tick() - holdStart) / RAMP_TIME, 0, 1)
-    local strength = BASE_STRENGTH + (MAGNET_STRENGTH - BASE_STRENGTH) * t
+    local ramp = math.clamp((tick() - holdStart - HOLD_DELAY) / RAMP_TIME, 0, 1)
+    local strength = BASE_STRENGTH + (MAGNET_STRENGTH - BASE_STRENGTH) * ramp
 
     local aimPos = predictPosition(target)
     local desired = CFrame.new(camera.CFrame.Position, aimPos)
@@ -115,9 +116,10 @@ RunService.RenderStepped:Connect(function(dt)
 end)
 
 --========================
--- GLOBAL TOGGLE (HOMEGUI)
+-- TOGGLE FROM HOMEGUI
 --========================
 _G.ToggleAimAssist = function(state)
     enabled = state and true or false
-    holdingFire = false
+    holding = false
+    holdStart = 0
 end
