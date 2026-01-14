@@ -1,12 +1,11 @@
 --==================================================
--- EventModule.lua (FINAL - TOOL BASED PICKUP)
--- Button -> Gift ONLY
--- Detect pickup via Tool in Character
--- Auto teleport -> ChristmasTree
+-- EventModule.lua (FINAL - HITBOX TOUCH FIX)
+-- Gift deposit requires TOOL TOUCH to Tree hitbox
 --==================================================
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
@@ -18,11 +17,16 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local GIFT_MODEL_NAME = "Gift"
 local TREE_MODEL_NAME = "ChristmasTree"
 
--- kata kunci nama Tool kado (case-insensitive)
 local GIFT_TOOL_KEYWORDS = { "gift", "present", "christmas" }
-
 local LOBBY_KEYWORDS = { "lobby", "spawn", "waiting", "menu" }
-local TELEPORT_OFFSET = Vector3.new(0, 3, 0)
+
+-- movement tuning (PENTING)
+local TREE_APPROACH_DISTANCE = 6     -- posisi awal di depan pohon
+local TREE_PUSH_DISTANCE = 4         -- jarak dorong menembus hitbox
+local TREE_UP_OFFSET = 2
+local GIFT_UP_OFFSET = 3
+
+local PUSH_TIME = 0.30               -- durasi dorong (detik)
 
 --==================================================
 -- MODULE
@@ -30,24 +34,21 @@ local TELEPORT_OFFSET = Vector3.new(0, 3, 0)
 local EventModule = {}
 EventModule.Enabled = false
 
--- state
-local gifts = {}
-local trees = {}
+local gifts, trees = {}, {}
 local giftIndex = 1
 local waitingForPickup = false
-local toolConn = nil
-
+local toolConn
 local gui, floatBtn
 
 --==================================================
--- UTIL
+-- UTILS
 --==================================================
 local function isLobbyContainer(inst)
     local cur = inst
     while cur do
-        local name = string.lower(cur.Name)
+        local n = string.lower(cur.Name)
         for _, k in ipairs(LOBBY_KEYWORDS) do
-            if string.find(name, k) then return true end
+            if string.find(n, k) then return true end
         end
         cur = cur.Parent
     end
@@ -59,51 +60,23 @@ local function getPrimary(model)
     for _, d in ipairs(model:GetDescendants()) do
         if d:IsA("BasePart") then return d end
     end
-    return nil
+end
+
+local function getChar()
+    return LocalPlayer.Character
 end
 
 local function getHRP()
-    local ch = LocalPlayer.Character
-    return ch and ch:FindFirstChild("HumanoidRootPart")
-end
-
-local function teleportToModel(model)
-    local hrp = getHRP()
-    if not hrp then return end
-    local part = getPrimary(model)
-    if not part then return end
-    hrp.CFrame = CFrame.new(part.Position + TELEPORT_OFFSET)
-end
-
-local function teleportToNearestTree()
-    local hrp = getHRP()
-    if not hrp then return end
-
-    local nearest, best = nil, math.huge
-    for _, t in ipairs(trees) do
-        local p = getPrimary(t)
-        if p then
-            local d = (p.Position - hrp.Position).Magnitude
-            if d < best then
-                best = d
-                nearest = t
-            end
-        end
-    end
-
-    if nearest then
-        teleportToModel(nearest)
-        print("[EventModule] Auto teleport to ChristmasTree")
-    end
+    local c = getChar()
+    return c and c:FindFirstChild("HumanoidRootPart")
 end
 
 local function hasGiftTool()
-    local ch = LocalPlayer.Character
-    if not ch then return false end
-
-    for _, inst in ipairs(ch:GetChildren()) do
-        if inst:IsA("Tool") then
-            local lname = string.lower(inst.Name)
+    local c = getChar()
+    if not c then return false end
+    for _, ch in ipairs(c:GetChildren()) do
+        if ch:IsA("Tool") then
+            local lname = string.lower(ch.Name)
             for _, k in ipairs(GIFT_TOOL_KEYWORDS) do
                 if string.find(lname, k) then
                     return true
@@ -135,7 +108,74 @@ local function scanMap()
 end
 
 --==================================================
--- PICKUP DETECTOR (TOOL-BASED)
+-- TELEPORT LOGIC
+--==================================================
+local function teleportToGift(gift)
+    local hrp = getHRP()
+    local p = getPrimary(gift)
+    if hrp and p then
+        hrp.CFrame = CFrame.new(p.Position + Vector3.new(0, GIFT_UP_OFFSET, 0))
+        print("[EventModule] Teleport to Gift")
+    end
+end
+
+local function depositToTree(tree)
+    local hrp = getHRP()
+    local p = getPrimary(tree)
+    if not (hrp and p) then return end
+
+    -- 1) posisi awal di depan pohon
+    local treeCF = p.CFrame
+    local startPos =
+        treeCF.Position
+        - treeCF.LookVector * TREE_APPROACH_DISTANCE
+        + Vector3.new(0, TREE_UP_OFFSET, 0)
+
+    hrp.CFrame = CFrame.new(startPos, treeCF.Position)
+    task.wait(0.05)
+
+    -- 2) dorong masuk ke hitbox (MENYENTUH)
+    local pushPos =
+        startPos
+        + treeCF.LookVector * TREE_PUSH_DISTANCE
+
+    local tween = TweenService:Create(
+        hrp,
+        TweenInfo.new(PUSH_TIME, Enum.EasingStyle.Linear),
+        { CFrame = CFrame.new(pushPos, treeCF.Position) }
+    )
+
+    tween:Play()
+    tween.Completed:Wait()
+
+    print("[EventModule] Gift deposited via hitbox touch")
+end
+
+local function depositToNearestTree()
+    if not hasGiftTool() then return end
+
+    local hrp = getHRP()
+    if not hrp then return end
+
+    local nearest, best = nil, math.huge
+    for _, t in ipairs(trees) do
+        local p = getPrimary(t)
+        if p then
+            local d = (p.Position - hrp.Position).Magnitude
+            if d < best then
+                best = d
+                nearest = t
+            end
+        end
+    end
+
+    if nearest then
+        depositToTree(nearest)
+    end
+end
+
+--==================================================
+-- PICKUP DETECTOR (TOOL BASED)
 --==================================================
 local function startPickupWatcher()
     if toolConn then toolConn:Disconnect() end
@@ -148,7 +188,8 @@ local function startPickupWatcher()
         for _, k in ipairs(GIFT_TOOL_KEYWORDS) do
             if string.find(lname, k) then
                 waitingForPickup = false
-                teleportToNearestTree()
+                task.wait(0.1)
+                depositToNearestTree()
                 return
             end
         end
@@ -216,10 +257,7 @@ local function createGui()
         if not EventModule.Enabled then return end
         if #gifts == 0 then return end
 
-        local gift = gifts[giftIndex]
-        teleportToModel(gift)
-        print("[EventModule] Teleport to Gift:", giftIndex)
-
+        teleportToGift(gifts[giftIndex])
         giftIndex += 1
         if giftIndex > #gifts then giftIndex = 1 end
 
@@ -234,20 +272,15 @@ end
 function EventModule:Enable()
     if EventModule.Enabled then return end
     EventModule.Enabled = true
-
     scanMap()
     createGui()
-
     print("[EventModule] Enabled")
 end
 
 function EventModule:Disable()
     EventModule.Enabled = false
     waitingForPickup = false
-
     if toolConn then toolConn:Disconnect() end
-    toolConn = nil
-
     destroyGui()
     print("[EventModule] Disabled")
 end
