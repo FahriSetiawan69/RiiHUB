@@ -1,215 +1,185 @@
 --==================================================
--- RiiHUB HomeGui FINAL (FIXED, STABLE)
--- Layout: UNCHANGED
+-- RiiHUB HomeGui (Purple Transparent UI | Delta Safe)
 --==================================================
 
-if _G.RiiHUB_GUI_LOADED then
-    warn("[RiiHUB] HomeGui already loaded")
-    return
-end
+if _G.RiiHUB_GUI_LOADED then return end
 _G.RiiHUB_GUI_LOADED = true
 
-print("[RiiHUB] Loading HomeGui...")
-
---=============================
--- SAFE MODULE BINDING
---=============================
-local ESPModule        = _G.ESPModule
-local AimAssistModule  = _G.AimAssistModule
-local EventModule      = _G.EventModule
-local KillerModule     = _G.KillerModule
-local StalkAssist      = _G.StalkAssistModule
-
--- Guard (NO YIELD)
-local function checkModule(name, module)
-    if not module then
-        warn("[HomeGui] "..name.." not found in _G")
-        return false
-    end
-    return true
-end
-
-checkModule("ESPModule", ESPModule)
-checkModule("AimAssistModule", AimAssistModule)
-checkModule("EventModule", EventModule)
-checkModule("KillerModule", KillerModule)
-checkModule("StalkAssistModule", StalkAssist)
-
---=============================
--- SERVICES
---=============================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
---=============================
--- UI STATE (PERSISTENT)
---=============================
-_G.RiiHUB_STATE = _G.RiiHUB_STATE or {
-    ESP = false,
-    AIM = false,
-    EVENT = false,
-    KILLER_HITBOX = false,
-    KILLER_STALK = false,
-}
+-- DESTROY OLD GUI IF EXISTS
+pcall(function()
+    local old = PlayerGui:FindFirstChild("RiiHUB_GUI")
+    if old then old:Destroy() end
+end)
 
-local STATE = _G.RiiHUB_STATE
-
---=============================
--- GUI ROOT (UNCHANGED)
---=============================
+-- ROOT GUI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "RiiHUB_GUI"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
+ScreenGui.DisplayOrder = 999
 ScreenGui.Parent = PlayerGui
 
---==================================================
--- !!! DI BAWAH INI ADALAH UI KAMU ASLI !!!
--- SAYA TIDAK MENGUBAH STRUKTUR / SIZE / POSISI
---==================================================
+-- MAIN CONTAINER
+local Main = Instance.new("Frame")
+Main.Size = UDim2.fromScale(0.85, 0.75)
+Main.Position = UDim2.fromScale(0.5, 0.5)
+Main.AnchorPoint = Vector2.new(0.5, 0.5)
+Main.BackgroundColor3 = Color3.fromRGB(90, 50, 130)
+Main.BackgroundTransparency = 0.25
+Main.BorderSizePixel = 0
+Main.Parent = ScreenGui
 
--- [PASTE UI FRAME ASLI KAMU DI SINI TANPA DIUBAH]
--- Saya asumsikan kamu memang sudah punya:
--- MainFrame, TabButtons, ContentFrames, ToggleButtons
---==================================================
+local UICorner = Instance.new("UICorner", Main)
+UICorner.CornerRadius = UDim.new(0, 18)
 
---==================================================
--- TOGGLE HELPERS (GENERIC, AMAN)
---==================================================
-local function safeToggle(stateKey, onEnable, onDisable)
-    STATE[stateKey] = not STATE[stateKey]
+-- LEFT PANEL (TABS)
+local Tabs = Instance.new("Frame")
+Tabs.Size = UDim2.new(0.3, 0, 1, 0)
+Tabs.BackgroundColor3 = Color3.fromRGB(70, 35, 110)
+Tabs.BackgroundTransparency = 0.2
+Tabs.BorderSizePixel = 0
+Tabs.Parent = Main
 
-    if STATE[stateKey] then
-        if onEnable then
-            task.spawn(onEnable)
-        end
-    else
-        if onDisable then
-            task.spawn(onDisable)
-        end
+Instance.new("UICorner", Tabs).CornerRadius = UDim.new(0, 18)
+
+-- RIGHT PANEL (CONTENT)
+local Content = Instance.new("Frame")
+Content.Position = UDim2.new(0.3, 0, 0, 0)
+Content.Size = UDim2.new(0.7, 0, 1, 0)
+Content.BackgroundTransparency = 1
+Content.Parent = Main
+
+-- TITLE
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 50)
+Title.BackgroundTransparency = 1
+Title.Text = "RiiHUB"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 26
+Title.TextColor3 = Color3.fromRGB(240, 220, 255)
+Title.Parent = Tabs
+
+-- TAB LIST
+local TabList = Instance.new("UIListLayout")
+TabList.Padding = UDim.new(0, 8)
+TabList.SortOrder = Enum.SortOrder.LayoutOrder
+TabList.Parent = Tabs
+TabList.VerticalAlignment = Enum.VerticalAlignment.Top
+
+TabList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Tabs.CanvasSize = UDim2.new(0,0,0,TabList.AbsoluteContentSize.Y)
+end)
+
+-- CONTENT LIST
+local ContentList = Instance.new("UIListLayout")
+ContentList.Padding = UDim.new(0, 10)
+ContentList.SortOrder = Enum.SortOrder.LayoutOrder
+ContentList.Parent = Content
+
+-- HELPERS
+local function createTab(text)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -20, 0, 42)
+    btn.Position = UDim2.new(0, 10, 0, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(120, 70, 170)
+    btn.BackgroundTransparency = 0.35
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 18
+    btn.AutoButtonColor = false
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
+    btn.Parent = Tabs
+    return btn
+end
+
+local function createToggle(text, callback)
+    local holder = Instance.new("Frame")
+    holder.Size = UDim2.new(1, -20, 0, 45)
+    holder.BackgroundTransparency = 1
+    holder.Parent = Content
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 18
+    label.TextColor3 = Color3.fromRGB(240, 220, 255)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = holder
+
+    local toggle = Instance.new("TextButton")
+    toggle.Size = UDim2.new(0.25, 0, 0.7, 0)
+    toggle.Position = UDim2.new(0.75, 0, 0.15, 0)
+    toggle.BackgroundColor3 = Color3.fromRGB(120, 70, 170)
+    toggle.Text = "OFF"
+    toggle.TextColor3 = Color3.fromRGB(255,255,255)
+    toggle.Font = Enum.Font.GothamBold
+    toggle.TextSize = 16
+    Instance.new("UICorner", toggle).CornerRadius = UDim.new(1,0)
+    toggle.Parent = holder
+
+    local state = false
+    toggle.MouseButton1Click:Connect(function()
+        state = not state
+        toggle.Text = state and "ON" or "OFF"
+        toggle.BackgroundColor3 = state
+            and Color3.fromRGB(170, 90, 255)
+            or Color3.fromRGB(120, 70, 170)
+        callback(state)
+    end)
+end
+
+-- MODULES
+local ESP = _G.ESPModule
+local AIM = _G.AimAssistModule
+local EVENT = _G.EventModule
+local KILLER = _G.KillerModule
+local STALK = _G.StalkAssistModule
+
+-- TABS
+local tabCombat = createTab("Combat")
+local tabVisual = createTab("Visual")
+local tabMisc = createTab("Misc")
+
+-- CLEAR CONTENT
+local function clearContent()
+    for _,v in ipairs(Content:GetChildren()) do
+        if not v:IsA("UIListLayout") then v:Destroy() end
     end
 end
 
---==================================================
--- ESP TAB
---==================================================
-local function toggleESP()
-    safeToggle("ESP",
-        function()
-            if ESPModule and ESPModule.Enable then
-                ESPModule:Enable()
-            end
-        end,
-        function()
-            if ESPModule and ESPModule.Disable then
-                ESPModule:Disable()
-            end
-        end
-    )
-end
+-- TAB ACTIONS
+tabCombat.MouseButton1Click:Connect(function()
+    clearContent()
+    createToggle("Aim Assist", function(v)
+        if AIM then (v and AIM.Enable or AIM.Disable)(AIM) end
+    end)
+    createToggle("Killer Mode", function(v)
+        if KILLER then (v and KILLER.Enable or KILLER.Disable)(KILLER) end
+    end)
+    createToggle("Stalk Assist", function(v)
+        if STALK then (v and STALK.Enable or STALK.Disable)(STALK) end
+    end)
+end)
 
---==================================================
--- SURVIVOR TAB (AIM)
---==================================================
-local function toggleAim()
-    safeToggle("AIM",
-        function()
-            if AimAssistModule and AimAssistModule.Enable then
-                AimAssistModule:Enable()
-            end
-        end,
-        function()
-            if AimAssistModule and AimAssistModule.Disable then
-                AimAssistModule:Disable()
-            end
-        end
-    )
-end
+tabVisual.MouseButton1Click:Connect(function()
+    clearContent()
+    createToggle("ESP", function(v)
+        if ESP then (v and ESP.Enable or ESP.Disable)(ESP) end
+    end)
+end)
 
---==================================================
--- EVENT TAB
---==================================================
-local function toggleEvent()
-    safeToggle("EVENT",
-        function()
-            if EventModule and EventModule.Enable then
-                EventModule:Enable()
-            end
-        end,
-        function()
-            if EventModule and EventModule.Disable then
-                EventModule:Disable()
-            end
-        end
-    )
-end
-
---==================================================
--- KILLER TAB
---==================================================
-local function toggleKillerHitbox()
-    safeToggle("KILLER_HITBOX",
-        function()
-            if KillerModule and KillerModule.EnableHitbox then
-                KillerModule:EnableHitbox()
-            end
-        end,
-        function()
-            if KillerModule and KillerModule.DisableHitbox then
-                KillerModule:DisableHitbox()
-            end
-        end
-    )
-end
-
-local function toggleKillerStalk()
-    safeToggle("KILLER_STALK",
-        function()
-            if StalkAssist and StalkAssist.Enable then
-                StalkAssist:Enable()
-            end
-        end,
-        function()
-            if StalkAssist and StalkAssist.Disable then
-                StalkAssist:Disable()
-            end
-        end
-    )
-end
-
---==================================================
--- BUTTON BINDING
--- (PASTE KE BUTTON ONCLICK YANG SUDAH ADA)
---==================================================
--- Contoh:
--- ESPToggleButton.MouseButton1Click:Connect(toggleESP)
--- AimToggleButton.MouseButton1Click:Connect(toggleAim)
--- EventToggleButton.MouseButton1Click:Connect(toggleEvent)
--- KillerHitboxButton.MouseButton1Click:Connect(toggleKillerHitbox)
--- KillerStalkButton.MouseButton1Click:Connect(toggleKillerStalk)
-
---==================================================
--- RESTORE STATE ON LOAD
---==================================================
-task.spawn(function()
-    task.wait(0.2)
-
-    if STATE.ESP and ESPModule and ESPModule.Enable then
-        ESPModule:Enable()
-    end
-    if STATE.AIM and AimAssistModule and AimAssistModule.Enable then
-        AimAssistModule:Enable()
-    end
-    if STATE.EVENT and EventModule and EventModule.Enable then
-        EventModule:Enable()
-    end
-    if STATE.KILLER_HITBOX and KillerModule and KillerModule.EnableHitbox then
-        KillerModule:EnableHitbox()
-    end
-    if STATE.KILLER_STALK and StalkAssist and StalkAssist.Enable then
-        StalkAssist:Enable()
-    end
+tabMisc.MouseButton1Click:Connect(function()
+    clearContent()
+    createToggle("Event Helper", function(v)
+        if EVENT then (v and EVENT.Enable or EVENT.Disable)(EVENT) end
+    end)
 end)
 
 print("[RiiHUB] HomeGui loaded successfully")
