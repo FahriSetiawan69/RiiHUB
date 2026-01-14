@@ -13,53 +13,56 @@ _G.RiiHUB_LOADED = true
 -- URLs
 local BASE = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/refs/heads/main/"
 
-local HomeGuiURL = BASE .. "HomeGui.lua"
-local ESPURL = BASE .. "ESPModule.lua"
-local AimAssistURL = BASE .. "AimAssistModule.lua"
-local EventURL = Base .. "EventModule.lua"
+local HomeGuiURL       = BASE .. "HomeGui.lua"
+local ESPURL           = BASE .. "ESPModule.lua"
+local AimAssistURL     = BASE .. "AimAssistModule.lua"
+local EventModuleURL   = BASE .. "EventModule.lua"
 
 -- Load Home GUI
-local ok, err = pcall(function()
-    loadstring(game:HttpGet(HomeGuiURL))()
-end)
-if not ok then
-    warn("Failed to load HomeGui.lua:", err)
-    return
+do
+    local ok, err = pcall(function()
+        loadstring(game:HttpGet(HomeGuiURL))()
+    end)
+    if not ok then
+        warn("Failed to load HomeGui.lua:", err)
+        return
+    end
 end
-
 task.wait(0.25)
 
 -- Load ESP Module
-ok, err = pcall(function()
-    loadstring(game:HttpGet(ESPURL))()
-end)
-if not ok then
-    warn("Failed to load ESPModule.lua:", err)
-    return
+do
+    local ok, err = pcall(function()
+        loadstring(game:HttpGet(ESPURL))()
+    end)
+    if not ok then
+        warn("Failed to load ESPModule.lua:", err)
+        return
+    end
 end
-
 task.wait(0.25)
 
--- Load Repair Fail Guard
-ok, err = pcall(function()
-    loadstring(game:HttpGet(RepairURL))()
-end)
-if not ok then
-    warn("Failed to load AimAssistModule.lua:", err)
-    return
+-- Load Aim Assist Module
+do
+    local ok, err = pcall(function()
+        loadstring(game:HttpGet(AimAssistURL))()
+    end)
+    if not ok then
+        warn("Failed to load AimAssistModule.lua:", err)
+        return
+    end
 end
-
 task.wait(0.25)
 
 -- Load Event Module
-ok, err = pcall(function()
-    loadstring(game:HttpGet(RepairURL))()
-end)
-if not ok then
-    warn("Failed to load EventModule.lua:", err)
-    return
+do
+    local ok, err = pcall(function()
+        loadstring(game:HttpGet(EventModuleURL))()
+    end)
+    if not ok then
+        warn("Failed to load EventModule.lua:", err)
+        return
+    end
 end
 
 warn("RiiHUB loaded successfully")
-
-
