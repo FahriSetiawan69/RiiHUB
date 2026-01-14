@@ -1,31 +1,46 @@
---==================================================
--- RiiHUB Loader.lua (SAFE)
---==================================================
+--========================================
+-- RiiHUB Loader (FIXED LOAD ORDER)
+--========================================
 
-if _G.RiiHUB_LOADED then
-    warn("[RiiHUB] already loaded, skipping")
+if _G.RiiHUB_LOADER_LOADED then
+    warn("[RiiHUB] Loader already executed")
     return
 end
-_G.RiiHUB_LOADED = true
+_G.RiiHUB_LOADER_LOADED = true
 
-local function load(url)
-    local ok, err = pcall(function()
-        loadstring(game:HttpGet(url))()
+print("[RiiHUB] Loader started")
+
+local BASE = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/refs/heads/main/"
+
+local function loadModule(name, url)
+    local ok, result = pcall(function()
+        return loadstring(game:HttpGet(url))()
     end)
+
     if not ok then
-        warn("Failed to load:", url)
-        warn(err)
+        warn("[RiiHUB] Failed to load "..name..": "..tostring(result))
+        return
     end
+
+    print("[RiiHUB] "..name.." loaded")
 end
 
--- LOAD MODULES FIRST
-load("https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/ESPModule.lua")
-load("https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/AimAssistModule.lua")
-load("https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/EventModule.lua")
-load("https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/KillerModule.lua")
-load("https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/StalkAssistModule.lua")
+--==============================
+-- LOAD MODULES (ORDER MATTERS)
+--==============================
 
--- LOAD GUI LAST
-load("https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/HomeGui.lua")
+loadModule("ESPModule",        BASE.."ESPModule.lua")
+loadModule("AimAssistModule",  BASE.."AimAssistModule.lua")
+loadModule("EventModule",      BASE.."EventModule.lua")
+loadModule("KillerModule",     BASE.."KillerModule.lua")
+loadModule("StalkAssistModule",BASE.."StalkAssistModule.lua")
 
-warn("[RiiHUB] Loader finished")
+-- Pastikan module benar-benar masuk _G
+task.wait(0.1)
+
+--==============================
+-- LOAD GUI TERAKHIR
+--==============================
+loadModule("HomeGui", BASE.."HomeGui.lua")
+
+print("[RiiHUB] Loader finished")
