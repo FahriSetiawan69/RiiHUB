@@ -110,6 +110,54 @@ function ESPModule:Disable()
     clearGeneratorESP()
 end
 
+--==================================================
+-- FLASHLIGHT CROSSHAIR (VISUAL ONLY)
+-- DOES NOT AFFECT ESP LOGIC
+--==================================================
+
+task.spawn(function()
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+    -- Prevent duplicate
+    if PlayerGui:FindFirstChild("Flashlight_Crosshair_GUI") then
+        return
+    end
+
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "Flashlight_Crosshair_GUI"
+    gui.IgnoreGuiInset = true
+    gui.ResetOnSpawn = false
+    gui.DisplayOrder = 3000
+    gui.Parent = PlayerGui
+
+    -- Crosshair container
+    local crosshair = Instance.new("Frame")
+    crosshair.Size = UDim2.fromOffset(18, 18)
+    crosshair.Position = UDim2.fromScale(0.5, 0.5)
+    crosshair.AnchorPoint = Vector2.new(0.5, 0.5)
+    crosshair.BackgroundTransparency = 1
+    crosshair.Parent = gui
+
+    local function line(size, pos)
+        local l = Instance.new("Frame")
+        l.Size = size
+        l.Position = pos
+        l.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        l.BorderSizePixel = 0
+        l.Parent = crosshair
+    end
+
+    -- Vertical
+    line(UDim2.fromOffset(2, 18), UDim2.fromOffset(8, 0))
+    -- Horizontal
+    line(UDim2.fromOffset(18, 2), UDim2.fromOffset(0, 8))
+
+    print("[ESPModule] Flashlight crosshair loaded (visual only)")
+end)
+
 -- EXPORT MODULE
 _G.ESPModule = ESPModule
 return ESPModule
+
