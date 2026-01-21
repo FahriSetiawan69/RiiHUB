@@ -1,17 +1,17 @@
 --==================================================
--- RiiHUB HomeGui (FINAL)
--- Sidebar grouped | Neon Purple | Minimize + Close
--- Client-side only
+-- RiiHUB HomeGui (FIXED FINAL)
+-- Stable for Mobile Executor
 --==================================================
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- Destroy old
+--========================
+-- DESTROY OLD
+--========================
 pcall(function()
     local old = PlayerGui:FindFirstChild("RiiHUB_GUI")
     if old then old:Destroy() end
@@ -45,8 +45,8 @@ local main = Instance.new("Frame")
 main.Size = UDim2.fromOffset(640, 420)
 main.Position = UDim2.fromScale(0.5, 0.5)
 main.AnchorPoint = Vector2.new(0.5, 0.5)
-main.BackgroundColor3 = Color3.fromRGB(28, 12, 40)
-main.BackgroundTransparency = 0.08
+main.BackgroundColor3 = Color3.fromRGB(32, 14, 45)
+main.BackgroundTransparency = 0.05
 main.BorderSizePixel = 0
 main.Parent = gui
 Instance.new("UICorner", main).CornerRadius = UDim.new(0, 14)
@@ -60,7 +60,7 @@ stroke.Transparency = 0.25
 -- HEADER
 --========================
 local header = Instance.new("Frame", main)
-header.Size = UDim2.new(1, 0, 0, 40)
+header.Size = UDim2.new(1, 0, 0, 42)
 header.BackgroundTransparency = 1
 
 local title = Instance.new("TextLabel", header)
@@ -69,21 +69,22 @@ title.Position = UDim2.fromOffset(12, 0)
 title.Text = "RiiHUB"
 title.Font = Enum.Font.GothamBold
 title.TextSize = 22
-title.TextXAlignment = Left
-title.TextColor3 = Color3.fromRGB(230, 200, 255)
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.TextColor3 = Color3.fromRGB(235, 215, 255)
 title.BackgroundTransparency = 1
 
--- Buttons
+-- Minimize
 local btnMin = Instance.new("TextButton", header)
 btnMin.Size = UDim2.fromOffset(28, 28)
 btnMin.Position = UDim2.new(1, -64, 0.5, -14)
 btnMin.Text = "–"
 btnMin.Font = Enum.Font.GothamBold
 btnMin.TextSize = 22
-btnMin.TextColor3 = Color3.fromRGB(230,230,255)
+btnMin.TextColor3 = Color3.fromRGB(240,240,255)
 btnMin.BackgroundColor3 = Color3.fromRGB(90, 40, 150)
 Instance.new("UICorner", btnMin)
 
+-- Close
 local btnClose = Instance.new("TextButton", header)
 btnClose.Size = UDim2.fromOffset(28, 28)
 btnClose.Position = UDim2.new(1, -32, 0.5, -14)
@@ -120,19 +121,24 @@ do
 end
 
 --========================
--- SIDEBAR + PANEL
+-- SIDEBAR
 --========================
 local sidebar = Instance.new("Frame", main)
-sidebar.Size = UDim2.new(0, 160, 1, -40)
-sidebar.Position = UDim2.fromOffset(0, 40)
-sidebar.BackgroundColor3 = Color3.fromRGB(20, 8, 30)
+sidebar.Size = UDim2.new(0, 160, 1, -42)
+sidebar.Position = UDim2.fromOffset(0, 42)
+sidebar.BackgroundColor3 = Color3.fromRGB(22, 10, 32)
 sidebar.BorderSizePixel = 0
+sidebar.Parent = main
 Instance.new("UICorner", sidebar).CornerRadius = UDim.new(0, 10)
 
+--========================
+-- PANEL
+--========================
 local panel = Instance.new("Frame", main)
-panel.Size = UDim2.new(1, -170, 1, -40)
-panel.Position = UDim2.new(0, 170, 0, 40)
+panel.Size = UDim2.new(1, -170, 1, -42)
+panel.Position = UDim2.new(0, 170, 0, 42)
 panel.BackgroundTransparency = 1
+panel.Parent = main
 
 local layout = Instance.new("UIListLayout", panel)
 layout.Padding = UDim.new(0, 8)
@@ -161,9 +167,9 @@ local function makeTabButton(info, idx)
     btn.Text = info.Name
     btn.Font = Enum.Font.Gotham
     btn.TextSize = 18
-    btn.TextColor3 = Color3.fromRGB(225, 225, 255)
-    btn.BackgroundColor3 = Color3.fromRGB(40, 14, 55)
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+    btn.TextColor3 = Color3.fromRGB(230,230,255)
+    btn.BackgroundColor3 = Color3.fromRGB(42, 16, 60)
+    Instance.new("UICorner", btn)
 
     btn.MouseButton1Click:Connect(function()
         selectedTab = info.Key
@@ -171,7 +177,9 @@ local function makeTabButton(info, idx)
     end)
 end
 
-for i,t in ipairs(tabs) do makeTabButton(t,i) end
+for i,t in ipairs(tabs) do
+    makeTabButton(t,i)
+end
 
 --========================
 -- TOGGLE
@@ -186,7 +194,7 @@ local function makeToggle(title, key, module)
     lbl.Text = title
     lbl.Font = Enum.Font.Gotham
     lbl.TextSize = 16
-    lbl.TextColor3 = Color3.fromRGB(230,230,255)
+    lbl.TextColor3 = Color3.fromRGB(235,235,255)
     lbl.BackgroundTransparency = 1
 
     local btn = Instance.new("TextButton", row)
@@ -195,7 +203,7 @@ local function makeToggle(title, key, module)
     btn.Font = Enum.Font.GothamBold
     btn.TextSize = 16
     btn.TextColor3 = Color3.fromRGB(255,255,255)
-    btn.BackgroundColor3 = Color3.fromRGB(110, 50, 180)
+    btn.BackgroundColor3 = Color3.fromRGB(120, 60, 200)
     Instance.new("UICorner", btn)
 
     local function refresh()
@@ -205,7 +213,7 @@ local function makeToggle(title, key, module)
 
     btn.MouseButton1Click:Connect(function()
         _G.RiiHUB_STATE[key] = not _G.RiiHUB_STATE[key]
-        if module then
+        if module and module.Enable and module.Disable then
             (_G.RiiHUB_STATE[key] and module.Enable or module.Disable)(module)
         end
         refresh()
@@ -239,23 +247,17 @@ function updatePanel()
     end
 end
 
+-- DELAY WAJIB UNTUK MOBILE
+task.wait(0.1)
 updatePanel()
 
 --========================
--- MINIMIZE / FLOATING
+-- MINIMIZE (SAFE)
 --========================
-local floating
-
 btnMin.MouseButton1Click:Connect(function()
-    local tween = TweenService:Create(main, TweenInfo.new(0.25), {
-        Size = UDim2.fromOffset(0,0),
-        BackgroundTransparency = 1
-    })
-    tween:Play()
-    tween.Completed:Wait()
     main.Visible = false
 
-    floating = Instance.new("TextButton", gui)
+    local floating = Instance.new("TextButton", gui)
     floating.Size = UDim2.fromOffset(120, 36)
     floating.Position = UDim2.fromScale(0.1, 0.5)
     floating.Text = "RiiHUB"
@@ -281,7 +283,7 @@ btnMin.MouseButton1Click:Connect(function()
                 floating.Position = pos + UDim2.fromOffset(d.X, d.Y)
             end
         end)
-        UIS.InputEnded:Connect(function(i)
+        UIS.InputEnded:Connect(function()
             dragging = false
         end)
     end
@@ -289,10 +291,6 @@ btnMin.MouseButton1Click:Connect(function()
     floating.MouseButton1Click:Connect(function()
         floating:Destroy()
         main.Visible = true
-        TweenService:Create(main, TweenInfo.new(0.25), {
-            Size = UDim2.fromOffset(640,420),
-            BackgroundTransparency = 0.08
-        }):Play()
     end)
 end)
 
@@ -300,10 +298,5 @@ end)
 -- CLOSE
 --========================
 btnClose.MouseButton1Click:Connect(function()
-    TweenService:Create(main, TweenInfo.new(0.25), {
-        Size = UDim2.fromOffset(0,0),
-        BackgroundTransparency = 1
-    }):Play()
-    task.wait(0.25)
     gui:Destroy()
 end)
