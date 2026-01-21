@@ -1,60 +1,45 @@
--- LOADER.LUA (RiiHUB Optimized Toggle System)
-local BaseURL = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/"
-local Modules = {} -- Menyimpan script yang sudah didownload agar tidak download ulang terus-menerus
+-- LOADER.LUA (Fixed & Optimized)
+local Loader = {}
+_G.RiiHUB_BaseUrl = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/"
 
--- Fungsi untuk mengambil script dari GitHub
-local function GetScript(file)
-    if Modules[file] then return Modules[file] end -- Ambil dari cache jika sudah ada
-    
-    local success, content = pcall(function()
-        return game:HttpGet(BaseURL .. file)
+-- Inisialisasi Variabel Global Warna (Agar tidak nil saat ESP dinyalakan)
+_G.SurvivorColor = Color3.fromRGB(0, 255, 13)
+_G.KillerColor = Color3.fromRGB(255, 0, 0)
+_G.GenColor = Color3.fromRGB(255, 255, 0)
+
+-- Fungsi untuk menjalankan Module dari GitHub secara dinamis
+function Loader.RunModule(fileName, state)
+    local success, scriptContent = pcall(function()
+        return game:HttpGet(_G.RiiHUB_BaseUrl .. fileName)
     end)
-    
-    if success and content then
-        local func, err = loadstring(content)
+
+    if success then
+        local func, err = loadstring(scriptContent)
         if func then
-            Modules[file] = func -- Simpan ke cache
-            return func
+            local module = func()
+            if type(module) == "function" then
+                module(state) -- Mengirimkan true/false ke ESPModule.lua
+                print("RiiHUB: " .. fileName .. " is now " .. (state and "ON" or "OFF"))
+            end
         else
-            warn("Syntax Error dalam file: " .. file .. " | " .. tostring(err))
+            warn("RiiHUB Error: Syntax error di " .. fileName .. " -> " .. tostring(err))
         end
     else
-        warn("Gagal mendownload file: " .. file)
+        warn("RiiHUB Error: File tidak ditemukan di GitHub: " .. fileName)
     end
-    return nil
 end
 
--- 1. Load HomeGui sebagai pondasi UI
-local HomeGuiScript = GetScript("HomeGui.lua")
-if HomeGuiScript then
-    local UI = HomeGuiScript() -- Menjalankan HomeGui.lua dan menerima tabel GUI
-    
-    if UI and UI.Tabs then
-        print("[RiiHUB] UI Loaded, Connecting Modules...")
+-- Simpan Loader ke Global agar bisa diakses HomeGui
+_G.RiiLoader = Loader
 
-        -- 2. KONEKSI DINAMIS UNTUK SETIAP TOGGLE
-        -- Kita looping setiap tab yang didaftarkan di HomeGui
-        for fileName, tabData in pairs(UI.Tabs) do
-            
-            -- Kita berikan fungsi (callback) ke setiap tombol ON/OFF di HomeGui
-            tabData:SetCallback(function(isActive)
-                print("[RiiHUB] Module " .. fileName .. " set to: " .. tostring(isActive))
-                
-                local moduleFunc = GetScript(fileName)
-                if moduleFunc then
-                    -- Menjalankan module dengan parameter true/false
-                    -- Catatan: Script module kamu (misal ESPModule.lua) harus bisa menerima parameter
-                    task.spawn(function()
-                        moduleFunc(isActive)
-                    end)
-                end
-            end)
-            
-        end
-    end
-else
-    warn("[RiiHUB] Gagal memuat HomeGui. Cek koneksi atau URL GitHub.")
+-- Memanggil HomeGui.lua
+print("RiiHUB: Loading UI...")
+local uiSuccess, uiErr = pcall(function()
+    loadstring(game:HttpGet(_G.RiiHUB_BaseUrl .. "HomeGui.lua"))()
+end)
+
+if not uiSuccess then
+    warn("RiiHUB Fatal Error: Gagal memuat HomeGui -> " .. tostring(uiErr))
 end
 
--- Info tambahan di Console
-print("--- RiiHUB LOADED SUCCESSFULLY ---")
+return Loader
