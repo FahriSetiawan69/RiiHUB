@@ -1,35 +1,33 @@
---==================================================
--- RiiHUB Loader (FINAL - SAFE RE-EXECUTE)
---==================================================
+-- LOADER.LUA (Main Entry)
+local BaseURL = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/"
 
-print("[RiiHUB] Loader executing")
-
-local function safeLoad(name, url)
-    local ok, res = pcall(function()
-        return loadstring(game:HttpGet(url))()
+local function LoadFromRepo(fileName)
+    local success, content = pcall(function()
+        return game:HttpGet(BaseURL .. fileName)
     end)
-    if not ok then
-        warn("[RiiHUB] Failed loading "..name..": "..tostring(res))
-        return nil
+    if success and content then
+        local func, err = loadstring(content)
+        if func then return func() else warn("Error in " .. fileName .. ": " .. err) end
+    else
+        warn("Gagal mengambil file: " .. fileName)
     end
-    print("[RiiHUB] "..name.." loaded")
-    return res
 end
 
--- OPTIONAL: disable old modules if exist
-pcall(function()
-    if _G.ESPModule and _G.ESPModule.Disable then _G.ESPModule:Disable() end
-    if _G.AimAssistModule and _G.AimAssistModule.Disable then _G.AimAssistModule:Disable() end
-end)
+-- 1. Load HomeGui sebagai pondasi UI
+local UI = LoadFromRepo("HomeGui.lua")
 
--- LOAD MODULES
-_G.ESPModule        = safeLoad("ESPModule",        "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/ESPModule.lua")
-_G.AimAssistModule  = safeLoad("AimAssistModule",  "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/AimAssistModule.lua")
-_G.EventModule      = safeLoad("EventModule",      "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/EventModule.lua")
-_G.KillerModule     = safeLoad("KillerModule",     "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/KillerModule.lua")
-_G.StalkAssistModule= safeLoad("StalkAssistModule","https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/StalkAssistModule.lua")
-
--- LOAD GUI TERAKHIR
-safeLoad("HomeGui", "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/HomeGui.lua")
-
-print("[RiiHUB] Loader finished")
+if UI and UI.Tabs then
+    -- 2. Koneksi Otomatis berdasarkan nama file di repository
+    -- Nama Tab di HomeGui.lua HARUS sama dengan nama file di GitHub
+    for fileName, button in pairs(UI.Tabs) do
+        button.Activated:Connect(function()
+            print("Executing Module: " .. fileName)
+            LoadFromRepo(fileName) -- Memanggil file seperti 'ESPModule.lua'
+            
+            -- Feedback Visual
+            button.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
+            task.wait(0.3)
+            button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        end)
+    end
+end
