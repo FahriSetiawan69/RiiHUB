@@ -1,163 +1,72 @@
--- ESPModule.lua (Delta Safe / With Enable/Disable)
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-
-local ESPModule = {}
-ESPModule.Enabled = false
-ESPModule.PlayerHighlights = {}
-ESPModule.GeneratorHighlights = {}
-
-local COLORS = {
-    Survivor = Color3.fromRGB(0,255,120),
-    Killer = Color3.fromRGB(255,70,70),
-    Generator = Color3.fromRGB(255,220,80),
-}
-
-local LocalPlayer = Players.LocalPlayer
-
--- Utility Functions
-local function clearPlayerESP(player)
-    if ESPModule.PlayerHighlights[player] then
-        for _,v in ipairs(ESPModule.PlayerHighlights[player]) do
-            v:Destroy()
+-- ESPMODULE.LUA (RiiHUB Optimized - Real-time Color)
+return function(state)
+    _G.ESP_Active = state
+    
+    -- Fungsi untuk membersihkan semua ESP saat dimatikan
+    local function CleanUp()
+        for _, v in pairs(game:GetService("Players"):GetPlayers()) do
+            if v.Character and v.Character:FindFirstChild("RiiHUB_ESP") then
+                v.Character.RiiHUB_ESP:Destroy()
+            end
         end
-        ESPModule.PlayerHighlights[player] = nil
-    end
-end
-
-local function clearGeneratorESP()
-    for _,v in ipairs(ESPModule.GeneratorHighlights) do
-        v:Destroy()
-    end
-    table.clear(ESPModule.GeneratorHighlights)
-end
-
-local function createPlayerESP(player)
-    if player == LocalPlayer then return end
-    clearPlayerESP(player)
-
-    if not player.Character then
-        return
-    end
-
-    local char = player.Character
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    local root = char:FindFirstChild("HumanoidRootPart")
-
-    if not hum or hum.Health <= 0 or not root then
-        return
-    end
-
-    ESPModule.PlayerHighlights[player] = {}
-
-    local isKiller = (player.Team and player.Team.Name == "Killer")
-
-    local hl = Instance.new("Highlight")
-    hl.Adornee = char
-    hl.FillTransparency = 1
-    hl.OutlineTransparency = 0
-    hl.OutlineColor = isKiller and COLORS.Killer or COLORS.Survivor
-    hl.Parent = char
-
-    table.insert(ESPModule.PlayerHighlights[player], hl)
-end
-
-local function createGeneratorESP()
-    clearGeneratorESP()
-    for _,obj in ipairs(Workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj.Name == "Generator" then
-            local hl = Instance.new("Highlight")
-            hl.Adornee = obj
-            hl.FillTransparency = 1
-            hl.OutlineTransparency = 0
-            hl.OutlineColor = COLORS.Generator
-            hl.Parent = obj
-
-            table.insert(ESPModule.GeneratorHighlights, hl)
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("Highlight") and obj.Name == "RiiHUB_ESP" then
+                obj:Destroy()
+            end
         end
     end
-end
 
--- Enable Function
-function ESPModule:Enable()
-    ESPModule.Enabled = true
-
-    for _,p in ipairs(Players:GetPlayers()) do
-        createPlayerESP(p)
+    if not state then
+        CleanUp()
+        return 
     end
 
-    createGeneratorESP()
+    -- Loop Utama ESP
+    task.spawn(function()
+        while _G.ESP_Active do
+            -- 1. ESP PEMAIN (Killer & Survivor)
+            for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+                if player ~= game.Players.LocalPlayer and player.Character then
+                    local char = player.Character
+                    local highlight = char:FindFirstChild("RiiHUB_ESP")
+                    
+                    if not highlight then
+                        highlight = Instance.new("Highlight")
+                        highlight.Name = "RiiHUB_ESP"
+                        highlight.FillTransparency = 0.6
+                        highlight.Parent = char
+                    end
 
-    Players.PlayerAdded:Connect(function(p)
-        createPlayerESP(p)
+                    -- Logika Penentuan Warna (Real-time dari Global Variable UI)
+                    -- Ganti pengecekan tim sesuai dengan sistem game yang kamu mainkan
+                    if player.TeamColor == BrickColor.new("Bright red") or player.Name:lower():find("killer") then
+                        highlight.OutlineColor = _G.KillerColor or Color3.fromRGB(255, 0, 0)
+                        highlight.FillColor = _G.KillerColor or Color3.fromRGB(255, 0, 0)
+                    else
+                        highlight.OutlineColor = _G.SurvivorColor or Color3.fromRGB(0, 255, 0)
+                        highlight.FillColor = _G.SurvivorColor or Color3.fromRGB(0, 255, 0)
+                    end
+                end
+            end
+
+            -- 2. ESP OBJECT (Generator)
+            -- Ganti "Generator" dengan nama objek generator yang ada di workspace game
+            for _, obj in pairs(workspace:GetDescendants()) do
+                if obj.Name == "Generator" or obj:FindFirstChild("Generator") then
+                    local highlight = obj:FindFirstChild("RiiHUB_ESP")
+                    if not highlight then
+                        highlight = Instance.new("Highlight")
+                        highlight.Name = "RiiHUB_ESP"
+                        highlight.FillTransparency = 0.6
+                        highlight.Parent = obj
+                    end
+                    highlight.OutlineColor = _G.GenColor or Color3.fromRGB(255, 255, 0)
+                    highlight.FillColor = _G.GenColor or Color3.fromRGB(255, 255, 0)
+                end
+            end
+            
+            task.wait(1.5) -- Jeda update untuk stabilitas performa
+        end
+        CleanUp() -- Bersihkan jika loop berhenti
     end)
-
-    Players.PlayerRemoving:Connect(function(p)
-        clearPlayerESP(p)
-    end)
 end
-
--- Disable Function
-function ESPModule:Disable()
-    ESPModule.Enabled = false
-
-    for _,p in ipairs(Players:GetPlayers()) do
-        clearPlayerESP(p)
-    end
-
-    clearGeneratorESP()
-end
-
---==================================================
--- FLASHLIGHT CROSSHAIR (VISUAL ONLY)
--- DOES NOT AFFECT ESP LOGIC
---==================================================
-
-task.spawn(function()
-    local Players = game:GetService("Players")
-    local LocalPlayer = Players.LocalPlayer
-    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-
-    -- Prevent duplicate
-    if PlayerGui:FindFirstChild("Flashlight_Crosshair_GUI") then
-        return
-    end
-
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "Flashlight_Crosshair_GUI"
-    gui.IgnoreGuiInset = true
-    gui.ResetOnSpawn = false
-    gui.DisplayOrder = 3000
-    gui.Parent = PlayerGui
-
-    -- Crosshair container
-    local crosshair = Instance.new("Frame")
-    crosshair.Size = UDim2.fromOffset(18, 18)
-    crosshair.Position = UDim2.fromScale(0.5, 0.5)
-    crosshair.AnchorPoint = Vector2.new(0.5, 0.5)
-    crosshair.BackgroundTransparency = 1
-    crosshair.Parent = gui
-
-    local function line(size, pos)
-        local l = Instance.new("Frame")
-        l.Size = size
-        l.Position = pos
-        l.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        l.BorderSizePixel = 0
-        l.Parent = crosshair
-    end
-
-    -- Vertical
-    line(UDim2.fromOffset(2, 18), UDim2.fromOffset(8, 0))
-    -- Horizontal
-    line(UDim2.fromOffset(18, 2), UDim2.fromOffset(0, 8))
-
-    print("[ESPModule] Flashlight crosshair loaded (visual only)")
-end)
-
--- EXPORT MODULE
-_G.ESPModule = ESPModule
-return ESPModule
-
