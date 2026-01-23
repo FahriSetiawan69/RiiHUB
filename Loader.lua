@@ -1,54 +1,56 @@
---==================================================
--- RIIHUB LOADER (FIX HTTP 404 + SAFE LOAD)
---==================================================
+-- RiiHUB Loader (Delta Safe)
 
--- Anti double execute
-if _G.RIIHUB_LOADED then
-    warn("[RiiHUB] Loader sudah dijalankan")
-    return
-end
-_G.RIIHUB_LOADED = true
+local BASE = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/"
 
-local function loadModule(name, url)
-    local success, result = pcall(function()
+local function fetch(name)
+    local url = BASE .. name
+    local ok, res = pcall(function()
         return game:HttpGet(url)
     end)
-
-    if not success or not result then
+    if not ok or type(res) ~= "string" or #res < 20 then
         warn("[RiiHUB] Gagal load:", name)
         return nil
     end
-
-    local ok, module = pcall(function()
-        return loadstring(result)()
-    end)
-
-    if not ok then
-        warn("[RiiHUB] Error eksekusi:", name)
+    if res:find("<html") then
+        warn("[RiiHUB] Bukan RAW:", name)
         return nil
     end
-
-    print("[RiiHUB] Loaded:", name)
-    return module
+    return res
 end
 
--- ================= LOAD MODULES =================
+print("[RiiHUB] Loader start")
 
-local ESP = loadModule(
-    "ESPModule",
-    "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/ESPModule.lua"
-)
+-- Load HomeGui
+local homeSrc = fetch("HomeGui.lua")
+if not homeSrc then return end
 
--- ================= DEFAULT STATE =================
+-- Load Modules
+local modules = {}
 
-if ESP then
-    -- Semua toggle TERPISAH
-    ESP:SetPlayer(true)      -- Survivor + Killer
-    ESP:SetGenerator(true)   -- Generator
-    ESP:SetPallet(true)      -- Pallet
-    ESP:SetGate(true)        -- Gate
-else
-    warn("[RiiHUB] ESPModule tidak berhasil dimuat")
+for _,m in ipairs({
+    "ESPModule.lua",
+    "AimAssistModule.lua",
+    "EventModule.lua",
+    "HitBoxKiller.lua",
+    "SkillCheckGenerator.lua"
+}) do
+    local src = fetch(m)
+    if src then
+        local ok, mod = pcall(loadstring(src))
+        if ok and type(mod) == "table" then
+            modules[m] = mod
+            print("[RiiHUB] Loaded:", m)
+        else
+            warn("[RiiHUB] Error load:", m)
+        end
+    end
 end
 
-print("[RiiHUB] Loader selesai")
+-- Jalankan HomeGui
+local ok, err = pcall(function()
+    loadstring(homeSrc)(modules)
+end)
+
+if not ok then
+    warn("[RiiHUB] HomeGui error:", err)
+end
