@@ -5,7 +5,6 @@
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
-
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
@@ -26,6 +25,14 @@ _G.RiiHUB_STATE = _G.RiiHUB_STATE or {
     HITBOX = false,
     SKILL = false,
     EVENT = false,
+
+    -- NEW ESP FLAGS
+    SURVIVOR_ESP   = false,
+    KILLER_ESP     = false,
+    GENERATOR_ESP  = false,
+    PALLET_ESP     = false,
+    GATE_ESP       = false,
+    ESP_NAME_HP    = false,
 }
 
 --========================
@@ -128,7 +135,6 @@ sidebar.Size = UDim2.new(0, 160, 1, -42)
 sidebar.Position = UDim2.fromOffset(0, 42)
 sidebar.BackgroundColor3 = Color3.fromRGB(22, 10, 32)
 sidebar.BorderSizePixel = 0
-sidebar.Parent = main
 Instance.new("UICorner", sidebar).CornerRadius = UDim.new(0, 10)
 
 --========================
@@ -144,8 +150,10 @@ local layout = Instance.new("UIListLayout", panel)
 layout.Padding = UDim.new(0, 8)
 
 local function clearPanel()
-    for _, c in ipairs(panel:GetChildren()) do
-        if not c:IsA("UIListLayout") then c:Destroy() end
+    for _,c in ipairs(panel:GetChildren()) do
+        if not c:IsA("UIListLayout") then
+            c:Destroy()
+        end
     end
 end
 
@@ -153,11 +161,12 @@ end
 -- TABS
 --========================
 local tabs = {
-    { Name = "ESP",      Key = "ESP" },
+    { Name = "ESP", Key = "ESP" },
     { Name = "Survivor", Key = "SURVIVOR" },
-    { Name = "Killer",   Key = "KILLER" },
-    { Name = "Other",    Key = "OTHER" },
+    { Name = "Killer", Key = "KILLER" },
+    { Name = "Other", Key = "OTHER" },
 }
+
 local selectedTab = "ESP"
 
 local function makeTabButton(info, idx)
@@ -170,7 +179,6 @@ local function makeTabButton(info, idx)
     btn.TextColor3 = Color3.fromRGB(230,230,255)
     btn.BackgroundColor3 = Color3.fromRGB(42, 16, 60)
     Instance.new("UICorner", btn)
-
     btn.MouseButton1Click:Connect(function()
         selectedTab = info.Key
         updatePanel()
@@ -182,7 +190,7 @@ for i,t in ipairs(tabs) do
 end
 
 --========================
--- TOGGLE
+-- TOGGLE CREATOR
 --========================
 local function makeToggle(title, key, module)
     local row = Instance.new("Frame", panel)
@@ -209,8 +217,8 @@ local function makeToggle(title, key, module)
     local function refresh()
         btn.Text = (_G.RiiHUB_STATE[key] and "ON" or "OFF")
     end
-    refresh()
 
+    refresh()
     btn.MouseButton1Click:Connect(function()
         _G.RiiHUB_STATE[key] = not _G.RiiHUB_STATE[key]
         if module and module.Enable and module.Disable then
@@ -228,6 +236,16 @@ function updatePanel()
 
     if selectedTab == "ESP" then
         makeToggle("ESP", "ESP", _G.ESPModule)
+
+        -- ================================
+        -- TOGGLE ESP TERPISAH
+        -- ================================
+        makeToggle("Survivor ESP", "SURVIVOR_ESP", _G.ESPModule)
+        makeToggle("Killer ESP", "KILLER_ESP", _G.ESPModule)
+        makeToggle("Generator ESP", "GENERATOR_ESP", _G.ESPModule)
+        makeToggle("Pallet ESP", "PALLET_ESP", _G.ESPModule)
+        makeToggle("Gate ESP", "GATE_ESP", _G.ESPModule)
+        makeToggle("Nama + HP",   "ESP_NAME_HP", _G.ESPModule)
 
     elseif selectedTab == "SURVIVOR" then
         makeToggle("Aim Assist", "AIM", _G.AimAssistModule)
@@ -256,7 +274,6 @@ updatePanel()
 --========================
 btnMin.MouseButton1Click:Connect(function()
     main.Visible = false
-
     local floating = Instance.new("TextButton", gui)
     floating.Size = UDim2.fromOffset(120, 36)
     floating.Position = UDim2.fromScale(0.1, 0.5)
@@ -295,8 +312,7 @@ btnMin.MouseButton1Click:Connect(function()
 end)
 
 --========================
--- CLOSE
---========================
+-- CLOSE --========================
 btnClose.MouseButton1Click:Connect(function()
     gui:Destroy()
 end)
