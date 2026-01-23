@@ -1,6 +1,6 @@
 --====================================================
--- RiiHUB ESPModule (STABLE BASE + NameHP FIX)
--- Toggle Aman • Tidak Stuck • Minimal Change
+-- RiiHUB ESPModule (STABLE + CATEGORY FILTER)
+-- ESP Aman • Tidak Stuck • Kategori Aktif
 --====================================================
 
 local Players    = game:GetService("Players")
@@ -10,10 +10,6 @@ local Workspace  = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 
 local ESPModule = {}
-
--- =========================
--- STATE
--- =========================
 ESPModule.Enabled = false
 
 -- =========================
@@ -49,12 +45,16 @@ local function clear(tbl)
     table.clear(tbl)
 end
 
+local function state(key)
+    return _G.RiiHUB_STATE and _G.RiiHUB_STATE[key]
+end
+
 -- =========================
 -- PLAYER ESP
 -- =========================
 local function applyPlayer(player)
-    if player == LocalPlayer then return end
     if not ESPModule.Enabled then return end
+    if player == LocalPlayer then return end
 
     local char = player.Character
     if not char then return end
@@ -63,6 +63,10 @@ local function applyPlayer(player)
     if not hum or hum.Health <= 0 then return end
 
     local isKiller = player.Team and player.Team.Name == "Killer"
+
+    -- ===== FILTER KATEGORI =====
+    if isKiller and not state("KILLER_ESP") then return end
+    if (not isKiller) and not state("SURVIVOR_ESP") then return end
 
     if PlayerHL[player] then return end
 
@@ -75,7 +79,7 @@ local function applyPlayer(player)
     PlayerHL[player] = hl
 
     -- ===== NAME + HP =====
-    if _G.RiiHUB_STATE and _G.RiiHUB_STATE.ESP_NAME_HP then
+    if state("ESP_NAME_HP") then
         local tag = Instance.new("BillboardGui")
         tag.Adornee = char:FindFirstChild("Head") or char.PrimaryPart
         tag.AlwaysOnTop = true
@@ -92,14 +96,16 @@ local function applyPlayer(player)
         txt.TextColor3 = hl.OutlineColor
 
         NameHPConn[player] = RunService.Heartbeat:Connect(function()
-            if hum.Health > 0 then
-                txt.Text = string.format("%s [%d]", player.Name, hum.Health)
-            end
+            txt.Text = string.format("%s [%d]", player.Name, hum.Health)
         end)
     end
 end
 
 local function refreshPlayers()
+    clear(PlayerHL)
+    clear(NameHPGui)
+    clear(NameHPConn)
+
     for _,p in ipairs(Players:GetPlayers()) do
         applyPlayer(p)
     end
@@ -112,32 +118,40 @@ local function scanObjects()
     clear(ObjectHL)
 
     for _,v in ipairs(Workspace:GetDescendants()) do
-        if v:IsA("Model") then
-            local color
+        if not v:IsA("Model") then continue end
 
-            if v.Name == "Generator" then
-                color = COLORS.Generator
-            elseif v.Name == "Palletwrong" then
-                color = COLORS.Pallet
-            elseif v.Name == "ExitLever" or v.Name == "ExitGate" then
-                color = COLORS.Gate
-            end
+        if v.Name == "Generator" and state("GENERATOR_ESP") then
+            local hl = Instance.new("Highlight")
+            hl.Adornee = v
+            hl.FillTransparency = 1
+            hl.OutlineTransparency = 0
+            hl.OutlineColor = COLORS.Generator
+            hl.Parent = v
+            ObjectHL[v] = hl
 
-            if color then
-                local hl = Instance.new("Highlight")
-                hl.Adornee = v
-                hl.FillTransparency = 1
-                hl.OutlineTransparency = 0
-                hl.OutlineColor = color
-                hl.Parent = v
-                ObjectHL[v] = hl
-            end
+        elseif v.Name == "Palletwrong" and state("PALLET_ESP") then
+            local hl = Instance.new("Highlight")
+            hl.Adornee = v
+            hl.FillTransparency = 1
+            hl.OutlineTransparency = 0
+            hl.OutlineColor = COLORS.Pallet
+            hl.Parent = v
+            ObjectHL[v] = hl
+
+        elseif (v.Name == "ExitLever" or v.Name == "ExitGate") and state("GATE_ESP") then
+            local hl = Instance.new("Highlight")
+            hl.Adornee = v
+            hl.FillTransparency = 1
+            hl.OutlineTransparency = 0
+            hl.OutlineColor = COLORS.Gate
+            hl.Parent = v
+            ObjectHL[v] = hl
         end
     end
 end
 
 -- =========================
--- PUBLIC API (TIDAK BERUBAH)
+-- PUBLIC API (TIDAK DIUBAH)
 -- =========================
 function ESPModule:Enable()
     if self.Enabled then return end
@@ -149,13 +163,10 @@ end
 function ESPModule:Disable()
     if not self.Enabled then return end
     self.Enabled = false
-
     clear(PlayerHL)
-    clear(ObjectHL)
-
-    -- ⬇⬇⬇ FIX UTAMA NAME & HP ⬇⬇⬇
     clear(NameHPGui)
     clear(NameHPConn)
+    clear(ObjectHL)
 end
 
 return ESPModule
