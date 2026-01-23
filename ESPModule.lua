@@ -1,6 +1,6 @@
 --====================================================
--- RiiHUB ESPModule (FINAL FIX)
--- Player Realtime • Object Reactive • No Stuck
+-- RiiHUB ESPModule (FINAL OBJECT FIX)
+-- Player + Object ESP • All Categories Work
 --====================================================
 
 local Players    = game:GetService("Players")
@@ -52,8 +52,26 @@ local function destroy(map)
     table.clear(map)
 end
 
+-- Cari BasePart valid untuk Highlight
+local function getAdornee(obj)
+    if obj:IsA("BasePart") then
+        return obj
+    end
+    if obj:IsA("Model") then
+        if obj.PrimaryPart then
+            return obj.PrimaryPart
+        end
+        for _,d in ipairs(obj:GetDescendants()) do
+            if d:IsA("BasePart") then
+                return d
+            end
+        end
+    end
+    return nil
+end
+
 -- =========================
--- PLAYER UPDATE (REALTIME)
+-- PLAYER UPDATE
 -- =========================
 local function updatePlayers()
     if not ESPModule.Enabled then return end
@@ -62,38 +80,16 @@ local function updatePlayers()
         if player == LocalPlayer then continue end
 
         local char = player.Character
-        if not char then
-            if PlayerHL[player] then
-                PlayerHL[player]:Destroy()
-                PlayerHL[player] = nil
-            end
-            if NameHPGui[player] then
-                NameHPGui[player]:Destroy()
-                NameHPGui[player] = nil
-            end
-            if NameHPConn[player] then
-                NameHPConn[player]:Disconnect()
-                NameHPConn[player] = nil
-            end
-            continue
-        end
+        if not char then continue end
 
         local hum = char:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then
-            if PlayerHL[player] then
-                PlayerHL[player]:Destroy()
-                PlayerHL[player] = nil
-            end
-            continue
-        end
+        if not hum or hum.Health <= 0 then continue end
 
         local isKiller = player.Team and player.Team.Name == "Killer"
-
         local allowed =
             (isKiller and state("KILLER_ESP")) or
             ((not isKiller) and state("SURVIVOR_ESP"))
 
-        -- ===== OUTLINE =====
         if allowed then
             if not PlayerHL[player] then
                 local hl = Instance.new("Highlight")
@@ -103,8 +99,6 @@ local function updatePlayers()
                 hl.OutlineColor = isKiller and COLORS.Killer or COLORS.Survivor
                 hl.Parent = char
                 PlayerHL[player] = hl
-            else
-                PlayerHL[player].OutlineColor = isKiller and COLORS.Killer or COLORS.Survivor
             end
         else
             if PlayerHL[player] then
@@ -113,13 +107,13 @@ local function updatePlayers()
             end
         end
 
-        -- ===== NAME + HP =====
+        -- NAME + HP
         if allowed and state("ESP_NAME_HP") then
             if not NameHPGui[player] then
                 local tag = Instance.new("BillboardGui")
                 tag.Adornee = char:FindFirstChild("Head") or char.PrimaryPart
-                tag.AlwaysOnTop = true
                 tag.Size = UDim2.new(0,140,0,28)
+                tag.AlwaysOnTop = true
                 tag.Parent = char
                 NameHPGui[player] = tag
 
@@ -132,9 +126,7 @@ local function updatePlayers()
                 txt.TextColor3 = isKiller and COLORS.Killer or COLORS.Survivor
 
                 NameHPConn[player] = RunService.Heartbeat:Connect(function()
-                    if hum.Health > 0 then
-                        txt.Text = string.format("%s [%d]", player.Name, hum.Health)
-                    end
+                    txt.Text = string.format("%s [%d]", player.Name, hum.Health)
                 end)
             end
         else
@@ -151,41 +143,40 @@ local function updatePlayers()
 end
 
 -- =========================
--- OBJECT UPDATE (INTERVAL)
+-- OBJECT UPDATE (FINAL FIX)
 -- =========================
 local function updateObjects()
     destroy(ObjectHL)
     if not ESPModule.Enabled then return end
 
-    for _,v in ipairs(Workspace:GetDescendants()) do
-        if not v:IsA("Model") then continue end
+    for _,obj in ipairs(Workspace:GetDescendants()) do
+        local color
 
-        local color = nil
-
-        if v.Name == "Generator" and state("GENERATOR_ESP") then
+        if obj.Name == "Generator" and state("GENERATOR_ESP") then
             color = COLORS.Generator
-        elseif v.Name == "Palletwrong" and state("PALLET_ESP") then
+        elseif obj.Name == "Palletwrong" and state("PALLET_ESP") then
             color = COLORS.Pallet
-        elseif (v.Name == "ExitGate" or v.Name == "ExitLever") and state("GATE_ESP") then
+        elseif (obj.Name == "ExitGate" or obj.Name == "ExitLever") and state("GATE_ESP") then
             color = COLORS.Gate
         end
 
         if color then
-            local hl = Instance.new("Highlight")
-            hl.Adornee = v
-            hl.FillTransparency = 1
-            hl.OutlineTransparency = 0
-            hl.OutlineColor = color
-            hl.Parent = v
-            ObjectHL[v] = hl
+            local part = getAdornee(obj)
+            if part then
+                local hl = Instance.new("Highlight")
+                hl.Adornee = part
+                hl.FillTransparency = 1
+                hl.OutlineTransparency = 0
+                hl.OutlineColor = color
+                hl.Parent = part
+                ObjectHL[obj] = hl
+            end
         end
     end
 end
 
 local function anyObjectESPOn()
-    return state("GENERATOR_ESP")
-        or state("PALLET_ESP")
-        or state("GATE_ESP")
+    return state("GENERATOR_ESP") or state("PALLET_ESP") or state("GATE_ESP")
 end
 
 local function startObjectLoop()
