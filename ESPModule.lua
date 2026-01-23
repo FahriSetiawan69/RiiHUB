@@ -1,6 +1,6 @@
 --====================================================
--- RiiHUB ESPModule (FINAL STABLE)
--- No Master Lock • No Stuck • Simple & Reliable
+-- RiiHUB ESPModule (FINAL COMPATIBLE VERSION)
+-- Fix: HomeGui :Enable() / :Disable()
 --====================================================
 
 local Players = game:GetService("Players")
@@ -15,12 +15,13 @@ local ESP = {}
 -- FLAGS
 -- =========================
 ESP.Flags = {
-    Survivor  = false,
-    Killer    = false,
-    Generator = false,
-    Pallet    = false,
-    Gate      = false,
-    NameHP    = false,
+    ESP        = false, -- MASTER FLAG
+    Survivor   = false,
+    Killer     = false,
+    Generator  = false,
+    Pallet     = false,
+    Gate       = false,
+    NameHP     = false,
 }
 
 -- =========================
@@ -30,7 +31,7 @@ local PlayerHL   = {}
 local NameHPGui  = {}
 local NameHPConn = {}
 local ObjectHL   = {}
-local ScanLoop   = nil
+local LoopThread = nil
 
 -- =========================
 -- COLORS
@@ -44,9 +45,9 @@ local COLORS = {
 }
 
 -- =========================
--- UTILS
+-- UTIL
 -- =========================
-local function clearMap(map)
+local function clear(map)
     for k,v in pairs(map) do
         if typeof(v) == "RBXScriptConnection" then
             v:Disconnect()
@@ -57,9 +58,10 @@ local function clearMap(map)
     end
 end
 
-local function anyESPOn()
+local function anyActive()
+    if not ESP.Flags.ESP then return false end
     for k,v in pairs(ESP.Flags) do
-        if v then return true end
+        if k ~= "ESP" and v then return true end
     end
     return false
 end
@@ -69,7 +71,6 @@ end
 -- =========================
 local function applyPlayer(player)
     if player == LocalPlayer then return end
-
     local char = player.Character
     if not char then return end
 
@@ -90,7 +91,6 @@ local function applyPlayer(player)
         PlayerHL[player] = hl
     end
 
-    -- NAME + HP
     if ESP.Flags.NameHP and not NameHPGui[player] then
         local tag = Instance.new("BillboardGui")
         tag.Adornee = char:FindFirstChild("Head") or char.PrimaryPart
@@ -114,10 +114,9 @@ local function applyPlayer(player)
 end
 
 local function refreshPlayers()
-    clearMap(PlayerHL)
-    clearMap(NameHPGui)
-    clearMap(NameHPConn)
-
+    clear(PlayerHL)
+    clear(NameHPGui)
+    clear(NameHPConn)
     for _,p in ipairs(Players:GetPlayers()) do
         applyPlayer(p)
     end
@@ -127,34 +126,25 @@ end
 -- OBJECT ESP
 -- =========================
 local function scanObjects()
-    clearMap(ObjectHL)
-
+    clear(ObjectHL)
     for _,v in ipairs(Workspace:GetDescendants()) do
         if v:IsA("Model") then
+            local color
+
             if v.Name == "Generator" and ESP.Flags.Generator then
-                local hl = Instance.new("Highlight")
-                hl.Adornee = v
-                hl.FillTransparency = 1
-                hl.OutlineTransparency = 0
-                hl.OutlineColor = COLORS.Generator
-                hl.Parent = v
-                ObjectHL[v] = hl
-
+                color = COLORS.Generator
             elseif v.Name == "Palletwrong" and ESP.Flags.Pallet then
-                local hl = Instance.new("Highlight")
-                hl.Adornee = v
-                hl.FillTransparency = 1
-                hl.OutlineTransparency = 0
-                hl.OutlineColor = COLORS.Pallet
-                hl.Parent = v
-                ObjectHL[v] = hl
+                color = COLORS.Pallet
+            elseif (v.Name == "ExitGate" or v.Name == "ExitLever") and ESP.Flags.Gate then
+                color = COLORS.Gate
+            end
 
-            elseif (v.Name == "ExitLever" or v.Name == "ExitGate") and ESP.Flags.Gate then
+            if color then
                 local hl = Instance.new("Highlight")
                 hl.Adornee = v
                 hl.FillTransparency = 1
                 hl.OutlineTransparency = 0
-                hl.OutlineColor = COLORS.Gate
+                hl.OutlineColor = color
                 hl.Parent = v
                 ObjectHL[v] = hl
             end
@@ -166,31 +156,44 @@ end
 -- LOOP
 -- =========================
 local function startLoop()
-    if ScanLoop then return end
-    ScanLoop = task.spawn(function()
-        while anyESPOn() do
+    if LoopThread then return end
+    LoopThread = task.spawn(function()
+        while anyActive() do
             refreshPlayers()
             scanObjects()
             task.wait(1)
         end
-        ScanLoop = nil
+        LoopThread = nil
     end)
 end
 
 -- =========================
--- PUBLIC API
+-- PUBLIC API (INI YANG HOMEGUI PANGGIL)
 -- =========================
+function ESP:Enable()
+    ESP.Flags.ESP = true
+    startLoop()
+end
+
+function ESP:Disable()
+    ESP.Flags.ESP = false
+    clear(PlayerHL)
+    clear(NameHPGui)
+    clear(NameHPConn)
+    clear(ObjectHL)
+end
+
 function ESP:Set(flag, state)
     if ESP.Flags[flag] == nil then return end
     ESP.Flags[flag] = state
 
-    if anyESPOn() then
+    if anyActive() then
         startLoop()
     else
-        clearMap(PlayerHL)
-        clearMap(NameHPGui)
-        clearMap(NameHPConn)
-        clearMap(ObjectHL)
+        clear(PlayerHL)
+        clear(NameHPGui)
+        clear(NameHPConn)
+        clear(ObjectHL)
     end
 end
 
