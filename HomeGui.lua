@@ -1,6 +1,6 @@
 --==================================================
--- RiiHUB HomeGui (FIXED FINAL)
--- Stable for Mobile Executor
+-- RiiHUB HomeGui (FINAL FIX)
+-- Layout & Style TIDAK DIUBAH
 --==================================================
 
 local Players = game:GetService("Players")
@@ -9,7 +9,7 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 --========================
--- DESTROY OLD
+-- DESTROY OLD GUI
 --========================
 pcall(function()
     local old = PlayerGui:FindFirstChild("RiiHUB_GUI")
@@ -17,7 +17,7 @@ pcall(function()
 end)
 
 --========================
--- GLOBAL STATE
+-- GLOBAL STATE (DEFAULT OFF)
 --========================
 _G.RiiHUB_STATE = _G.RiiHUB_STATE or {
     ESP = false,
@@ -26,13 +26,13 @@ _G.RiiHUB_STATE = _G.RiiHUB_STATE or {
     SKILL = false,
     EVENT = false,
 
-    -- NEW ESP FLAGS
-    SURVIVOR_ESP   = false,
-    KILLER_ESP     = false,
-    GENERATOR_ESP  = false,
-    PALLET_ESP     = false,
-    GATE_ESP       = false,
-    ESP_NAME_HP    = false,
+    -- ESP FLAGS
+    SURVIVOR_ESP  = false,
+    KILLER_ESP    = false,
+    GENERATOR_ESP = false,
+    PALLET_ESP    = false,
+    GATE_ESP      = false,
+    ESP_NAME_HP   = false,
 }
 
 --========================
@@ -80,7 +80,6 @@ title.TextXAlignment = Enum.TextXAlignment.Left
 title.TextColor3 = Color3.fromRGB(235, 215, 255)
 title.BackgroundTransparency = 1
 
--- Minimize
 local btnMin = Instance.new("TextButton", header)
 btnMin.Size = UDim2.fromOffset(28, 28)
 btnMin.Position = UDim2.new(1, -64, 0.5, -14)
@@ -91,7 +90,6 @@ btnMin.TextColor3 = Color3.fromRGB(240,240,255)
 btnMin.BackgroundColor3 = Color3.fromRGB(90, 40, 150)
 Instance.new("UICorner", btnMin)
 
--- Close
 local btnClose = Instance.new("TextButton", header)
 btnClose.Size = UDim2.fromOffset(28, 28)
 btnClose.Position = UDim2.new(1, -32, 0.5, -14)
@@ -103,7 +101,7 @@ btnClose.BackgroundColor3 = Color3.fromRGB(140, 50, 80)
 Instance.new("UICorner", btnClose)
 
 --========================
--- DRAG MAIN
+-- DRAG WINDOW
 --========================
 do
     local dragging, startInput, startPos
@@ -190,7 +188,7 @@ for i,t in ipairs(tabs) do
 end
 
 --========================
--- TOGGLE CREATOR
+-- TOGGLE CREATOR (FIXED)
 --========================
 local function makeToggle(title, key, module)
     local row = Instance.new("Frame", panel)
@@ -219,11 +217,43 @@ local function makeToggle(title, key, module)
     end
 
     refresh()
+
     btn.MouseButton1Click:Connect(function()
         _G.RiiHUB_STATE[key] = not _G.RiiHUB_STATE[key]
-        if module and module.Enable and module.Disable then
+
+        -- ===== ESP MODULE HANDLING =====
+        if module == _G.ESPModule then
+            if key == "ESP" then
+                if _G.RiiHUB_STATE[key] then
+                    module:Enable()
+                else
+                    module:Disable()
+                end
+            else
+                if not module.Enabled then
+                    module:Enable()
+                end
+
+                local map = {
+                    SURVIVOR_ESP  = "Survivor",
+                    KILLER_ESP    = "Killer",
+                    GENERATOR_ESP = "Generator",
+                    PALLET_ESP    = "Pallet",
+                    GATE_ESP      = "Gate",
+                    ESP_NAME_HP   = "NameHP",
+                }
+
+                local flag = map[key]
+                if flag then
+                    module:Set(flag, _G.RiiHUB_STATE[key])
+                end
+            end
+
+        -- ===== OTHER MODULES =====
+        elseif module and module.Enable and module.Disable then
             (_G.RiiHUB_STATE[key] and module.Enable or module.Disable)(module)
         end
+
         refresh()
     end)
 end
@@ -236,16 +266,12 @@ function updatePanel()
 
     if selectedTab == "ESP" then
         makeToggle("ESP", "ESP", _G.ESPModule)
-
-        -- ================================
-        -- TOGGLE ESP TERPISAH
-        -- ================================
         makeToggle("Survivor ESP", "SURVIVOR_ESP", _G.ESPModule)
         makeToggle("Killer ESP", "KILLER_ESP", _G.ESPModule)
         makeToggle("Generator ESP", "GENERATOR_ESP", _G.ESPModule)
         makeToggle("Pallet ESP", "PALLET_ESP", _G.ESPModule)
         makeToggle("Gate ESP", "GATE_ESP", _G.ESPModule)
-        makeToggle("Nama + HP",   "ESP_NAME_HP", _G.ESPModule)
+        makeToggle("Nama + HP", "ESP_NAME_HP", _G.ESPModule)
 
     elseif selectedTab == "SURVIVOR" then
         makeToggle("Aim Assist", "AIM", _G.AimAssistModule)
@@ -265,12 +291,11 @@ function updatePanel()
     end
 end
 
--- DELAY WAJIB UNTUK MOBILE
 task.wait(0.1)
 updatePanel()
 
 --========================
--- MINIMIZE (SAFE)
+-- MINIMIZE
 --========================
 btnMin.MouseButton1Click:Connect(function()
     main.Visible = false
@@ -284,7 +309,6 @@ btnMin.MouseButton1Click:Connect(function()
     floating.BackgroundColor3 = Color3.fromRGB(120, 60, 200)
     Instance.new("UICorner", floating)
 
-    -- drag floating
     do
         local dragging, start, pos
         floating.InputBegan:Connect(function(i)
@@ -312,7 +336,8 @@ btnMin.MouseButton1Click:Connect(function()
 end)
 
 --========================
--- CLOSE --========================
+-- CLOSE
+--========================
 btnClose.MouseButton1Click:Connect(function()
     gui:Destroy()
 end)
