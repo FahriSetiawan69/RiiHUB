@@ -1,49 +1,47 @@
--- RiiHUB Loader (FINAL - SAFE)
+-- RiiHUB Loader FINAL (SESUI REPO)
 
 local BASE = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/"
 
-local function fetch(file)
-    local ok, res = pcall(function()
-        return game:HttpGet(BASE .. file)
-    end)
-    if not ok or type(res) ~= "string" or #res < 20 or res:find("<html") then
-        warn("[RiiHUB] Gagal load:", file)
-        return nil
-    end
-    return res
-end
+-- file → global name (WAJIB SAMA DENGAN HOMEGUI)
+local MODULES = {
+    ["ESPModule.lua"] = "ESPModule",
+    ["AimAssistModule.lua"] = "AimAssistModule",
+    ["EventModule.lua"] = "EventModule",
+    ["HitBoxKiller.lua"] = "HitBoxKiller",
+    ["SkillCheckGenerator.lua"] = "SkillCheckGenerator",
+}
 
 print("[RiiHUB] Loader start")
 
--- Load HomeGui
-local homeSrc = fetch("HomeGui.lua")
-if not homeSrc then return end
+for file, globalName in pairs(MODULES) do
+    local url = BASE .. file
+    local ok, src = pcall(function()
+        return game:HttpGet(url)
+    end)
 
--- Load Modules
-local modules = {}
-
-for _, name in ipairs({
-    "ESPModule.lua",
-    "AimAssistModule.lua",
-    "EventModule.lua",
-    "HitBoxKiller.lua",
-    "SkillCheckGenerator.lua",
-}) do
-    local src = fetch(name)
-    if src then
-        local ok, mod = pcall(loadstring(src))
-        if ok and type(mod) == "table" then
-            modules[name] = mod
-            print("[RiiHUB] Loaded:", name)
+    if not ok or type(src) ~= "string" or #src < 20 or src:find("<html") then
+        warn("[RiiHUB] Gagal load:", file)
+    else
+        local fn, err = loadstring(src)
+        if not fn then
+            warn("[RiiHUB] Syntax error:", file, err)
         else
-            warn("[RiiHUB] Error module:", name)
+            local success, mod = pcall(fn)
+            if success and type(mod) == "table" then
+                _G[globalName] = mod
+                print("[RiiHUB] Inject:", globalName)
+            else
+                warn("[RiiHUB] Module invalid:", file)
+            end
         end
     end
 end
 
--- Start HomeGui
+-- Load HomeGui (TIDAK DIUBAH)
+print("[RiiHUB] Loading HomeGui")
+
 local ok, err = pcall(function()
-    loadstring(homeSrc)(modules)
+    loadstring(game:HttpGet(BASE .. "HomeGui.lua"))()
 end)
 
 if not ok then
