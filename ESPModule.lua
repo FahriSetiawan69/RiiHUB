@@ -1,6 +1,6 @@
 --====================================================
--- RiiHUB ESPModule (FINAL COMPATIBLE VERSION)
--- Fix: HomeGui :Enable() / :Disable()
+-- RiiHUB ESPModule (FINAL LOGIC FIX)
+-- Compatible with HomeGui.lua
 --====================================================
 
 local Players = game:GetService("Players")
@@ -15,7 +15,7 @@ local ESP = {}
 -- FLAGS
 -- =========================
 ESP.Flags = {
-    ESP        = false, -- MASTER FLAG
+    ESP        = false,
     Survivor   = false,
     Killer     = false,
     Generator  = false,
@@ -27,16 +27,15 @@ ESP.Flags = {
 -- =========================
 -- STORAGE
 -- =========================
-local PlayerHL   = {}
-local NameHPGui  = {}
-local NameHPConn = {}
-local ObjectHL   = {}
-local LoopThread = nil
+local PlayerHL  = {}
+local NameGui   = {}
+local ObjHL     = {}
+local Loop      = nil
 
 -- =========================
 -- COLORS
 -- =========================
-local COLORS = {
+local C = {
     Survivor  = Color3.fromRGB(0,255,120),
     Killer    = Color3.fromRGB(255,70,70),
     Generator = Color3.fromRGB(255,220,80),
@@ -45,16 +44,13 @@ local COLORS = {
 }
 
 -- =========================
--- UTIL
+-- CLEAR
 -- =========================
-local function clear(map)
-    for k,v in pairs(map) do
-        if typeof(v) == "RBXScriptConnection" then
-            v:Disconnect()
-        elseif typeof(v) == "Instance" then
-            v:Destroy()
-        end
-        map[k] = nil
+local function clear(t)
+    for k,v in pairs(t) do
+        if typeof(v) == "Instance" then v:Destroy() end
+        if typeof(v) == "RBXScriptConnection" then v:Disconnect() end
+        t[k] = nil
     end
 end
 
@@ -69,56 +65,49 @@ end
 -- =========================
 -- PLAYER ESP
 -- =========================
-local function applyPlayer(player)
-    if player == LocalPlayer then return end
-    local char = player.Character
+local function applyPlayer(p)
+    if p == LocalPlayer then return end
+    local char = p.Character
     if not char then return end
 
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum or hum.Health <= 0 then return end
 
-    local isKiller = player.Team and player.Team.Name == "Killer"
+    local isKiller = p.Team and p.Team.Name == "Killer"
     if isKiller and not ESP.Flags.Killer then return end
     if not isKiller and not ESP.Flags.Survivor then return end
 
-    if not PlayerHL[player] then
+    if not PlayerHL[p] then
         local hl = Instance.new("Highlight")
         hl.Adornee = char
         hl.FillTransparency = 1
         hl.OutlineTransparency = 0
-        hl.OutlineColor = isKiller and COLORS.Killer or COLORS.Survivor
+        hl.OutlineColor = isKiller and C.Killer or C.Survivor
         hl.Parent = char
-        PlayerHL[player] = hl
+        PlayerHL[p] = hl
     end
 
-    if ESP.Flags.NameHP and not NameHPGui[player] then
-        local tag = Instance.new("BillboardGui")
-        tag.Adornee = char:FindFirstChild("Head") or char.PrimaryPart
-        tag.Size = UDim2.new(0,140,0,28)
-        tag.AlwaysOnTop = true
-        tag.Parent = char
-        NameHPGui[player] = tag
+    if ESP.Flags.NameHP and not NameGui[p] then
+        local gui = Instance.new("BillboardGui")
+        gui.Adornee = char:FindFirstChild("Head")
+        gui.Size = UDim2.new(0,150,0,28)
+        gui.AlwaysOnTop = true
+        gui.Parent = char
+        NameGui[p] = gui
 
-        local txt = Instance.new("TextLabel", tag)
+        local txt = Instance.new("TextLabel", gui)
         txt.Size = UDim2.fromScale(1,1)
         txt.BackgroundTransparency = 1
+        txt.TextStrokeTransparency = 0
         txt.Font = Enum.Font.SourceSansBold
         txt.TextSize = 14
-        txt.TextStrokeTransparency = 0
-        txt.TextColor3 = PlayerHL[player].OutlineColor
+        txt.TextColor3 = PlayerHL[p].OutlineColor
 
-        NameHPConn[player] = RunService.Heartbeat:Connect(function()
-            txt.Text = string.format("%s [%d]", player.Name, hum.Health)
+        RunService.Heartbeat:Connect(function()
+            if hum.Health > 0 then
+                txt.Text = p.Name .. " [" .. math.floor(hum.Health) .. "]"
+            end
         end)
-    end
-end
-
-local function refreshPlayers()
-    clear(PlayerHL)
-    clear(NameHPGui)
-    clear(NameHPConn)
-    for _,p in ipairs(Players:GetPlayers()) do
-        applyPlayer(p)
     end
 end
 
@@ -126,17 +115,16 @@ end
 -- OBJECT ESP
 -- =========================
 local function scanObjects()
-    clear(ObjectHL)
+    clear(ObjHL)
     for _,v in ipairs(Workspace:GetDescendants()) do
         if v:IsA("Model") then
             local color
-
             if v.Name == "Generator" and ESP.Flags.Generator then
-                color = COLORS.Generator
+                color = C.Generator
             elseif v.Name == "Palletwrong" and ESP.Flags.Pallet then
-                color = COLORS.Pallet
+                color = C.Pallet
             elseif (v.Name == "ExitGate" or v.Name == "ExitLever") and ESP.Flags.Gate then
-                color = COLORS.Gate
+                color = C.Gate
             end
 
             if color then
@@ -146,7 +134,7 @@ local function scanObjects()
                 hl.OutlineTransparency = 0
                 hl.OutlineColor = color
                 hl.Parent = v
-                ObjectHL[v] = hl
+                ObjHL[v] = hl
             end
         end
     end
@@ -155,46 +143,49 @@ end
 -- =========================
 -- LOOP
 -- =========================
-local function startLoop()
-    if LoopThread then return end
-    LoopThread = task.spawn(function()
+local function start()
+    if Loop then return end
+    Loop = task.spawn(function()
         while anyActive() do
-            refreshPlayers()
+            clear(PlayerHL)
+            clear(NameGui)
+            for _,p in ipairs(Players:GetPlayers()) do
+                applyPlayer(p)
+            end
             scanObjects()
             task.wait(1)
         end
-        LoopThread = nil
+        Loop = nil
     end)
 end
 
 -- =========================
--- PUBLIC API (INI YANG HOMEGUI PANGGIL)
+-- HOMEGUI API (INI KUNCI FIX)
 -- =========================
-function ESP:Enable()
-    ESP.Flags.ESP = true
-    startLoop()
-end
-
+function ESP:Enable() ESP.Flags.ESP = true start() end
 function ESP:Disable()
     ESP.Flags.ESP = false
     clear(PlayerHL)
-    clear(NameHPGui)
-    clear(NameHPConn)
-    clear(ObjectHL)
+    clear(NameGui)
+    clear(ObjHL)
 end
 
-function ESP:Set(flag, state)
-    if ESP.Flags[flag] == nil then return end
-    ESP.Flags[flag] = state
+function ESP:EnableSurvivor() ESP.Flags.Survivor = true start() end
+function ESP:DisableSurvivor() ESP.Flags.Survivor = false end
 
-    if anyActive() then
-        startLoop()
-    else
-        clear(PlayerHL)
-        clear(NameHPGui)
-        clear(NameHPConn)
-        clear(ObjectHL)
-    end
-end
+function ESP:EnableKiller() ESP.Flags.Killer = true start() end
+function ESP:DisableKiller() ESP.Flags.Killer = false end
+
+function ESP:EnableGenerator() ESP.Flags.Generator = true start() end
+function ESP:DisableGenerator() ESP.Flags.Generator = false end
+
+function ESP:EnablePallet() ESP.Flags.Pallet = true start() end
+function ESP:DisablePallet() ESP.Flags.Pallet = false end
+
+function ESP:EnableGate() ESP.Flags.Gate = true start() end
+function ESP:DisableGate() ESP.Flags.Gate = false end
+
+function ESP:EnableNameHP() ESP.Flags.NameHP = true start() end
+function ESP:DisableNameHP() ESP.Flags.NameHP = false clear(NameGui) end
 
 return ESP
