@@ -1,98 +1,161 @@
--- ESPModule.lua (Fixed Version)
-local ESP = {
-    States = {},
-    Folders = {}
+--====================================================
+-- RiiHUB ESPModule (STABLE BASE + NameHP FIX)
+-- Toggle Aman • Tidak Stuck • Minimal Change
+--====================================================
+
+local Players    = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace  = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+
+local ESPModule = {}
+
+-- =========================
+-- STATE
+-- =========================
+ESPModule.Enabled = false
+
+-- =========================
+-- STORAGE
+-- =========================
+local PlayerHL   = {}
+local NameHPGui  = {}
+local NameHPConn = {}
+local ObjectHL   = {}
+
+-- =========================
+-- COLORS
+-- =========================
+local COLORS = {
+    Survivor  = Color3.fromRGB(0,255,120),
+    Killer    = Color3.fromRGB(255,70,70),
+    Generator = Color3.fromRGB(255,220,80),
+    Pallet    = Color3.fromRGB(255,140,0),
+    Gate      = Color3.fromRGB(80,120,255),
 }
 
-local Players = game:GetService("Players")
-local lp = Players.LocalPlayer
-local pgui = lp:WaitForChild("PlayerGui")
-
--- Fungsi untuk mendapatkan atau membuat folder khusus per kategori
-local function GetCategoryFolder(name)
-    local folderName = "Rii_ESP_" .. name
-    local folder = pgui:FindFirstChild(folderName)
-    if not folder then
-        folder = Instance.new("Folder", pgui)
-        folder.Name = folderName
-    end
-    return folder
-end
-
--- Fungsi membuat Box Visual (Logic asli kamu)
-local function CreateBox(obj, category, color)
-    local folder = GetCategoryFolder(category)
-    
-    local bbg = Instance.new("BillboardGui", folder)
-    bbg.Name = "ESP_Tag"
-    bbg.Adornee = obj
-    bbg.AlwaysOnTop = true
-    bbg.Size = UDim2.new(4, 0, 4, 0)
-    bbg.DistanceUpperLimit = 10000
-
-    local frame = Instance.new("Frame", bbg)
-    frame.Size = UDim2.new(1, 0, 1, 0)
-    frame.BackgroundTransparency = 1
-    frame.BorderColor3 = color
-    frame.BorderSizePixel = 2
-end
-
--- Logic Pengecekan Objek (Tetap menggunakan logic asli kamu)
-local function CheckObject(v)
-    if not v:IsA("BasePart") and not v:IsA("MeshPart") then return end
-    local p = v.Parent
-    if not p then return end
-
-    -- Generator Logic
-    if ESP.States["Generator"] and v.Name == "HitBox" and p.Name == "Generator" then
-        CreateBox(v, "Generator", Color3.fromRGB(255, 255, 0))
-    
-    -- Pallet Logic
-    elseif ESP.States["Pallet"] and v.Name == "HumanoidRootPart" and p.Name == "Palletwrong" then
-        CreateBox(v, "Pallet", Color3.fromRGB(255, 165, 0))
-    
-    -- Gate Logic
-    elseif ESP.States["Gate"] and v.Name == "MeshPart" and p.Name == "ExitLever" then
-        CreateBox(v, "Gate", Color3.fromRGB(0, 0, 255))
-        
-    -- Window Logic
-    elseif ESP.States["Window"] and v.Name == "inviswall" and p.Name == "Window" then
-        CreateBox(v, "Window", Color3.fromRGB(0, 255, 255))
-
-    -- Survivor / Player Logic (Jika ada)
-    elseif ESP.States["Survivor"] and v.Name == "HumanoidRootPart" and p:FindFirstChild("Humanoid") and p.Name ~= lp.Name then
-        CreateBox(v, "Survivor", Color3.fromRGB(0, 255, 0))
-    end
-end
-
--- Watcher: Otomatis deteksi objek baru (Anti-StreamingEnabled)
-if not _G.RiiWatcherActive then
-    _G.RiiWatcherActive = true
-    workspace.DescendantAdded:Connect(function(v)
-        -- Beri jeda sedikit agar properti objek ter-load sempurna
-        task.wait(0.1)
-        CheckObject(v)
-    end)
-end
-
--- Fungsi Utama yang dipanggil oleh HomeGui.lua
-return function(category, state)
-    -- Simpan status toggle
-    ESP.States[category] = state
-    
-    if state == true then
-        -- Jika ON: Scan semua objek yang sudah ada di workspace
-        for _, v in pairs(workspace:GetDescendants()) do
-            CheckObject(v)
+-- =========================
+-- UTILS
+-- =========================
+local function clear(tbl)
+    for _,v in pairs(tbl) do
+        if typeof(v) == "RBXScriptConnection" then
+            v:Disconnect()
+        elseif typeof(v) == "Instance" then
+            v:Destroy()
         end
-        print("RiiHUB: " .. category .. " ESP Enabled")
-    else
-        -- Jika OFF: Hapus folder kategori tersebut saja (Instant Clean)
-        local folderName = "Rii_ESP_" .. category
-        local folder = pgui:FindFirstChild(folderName)
-        if folder then
-            folder:Destroy()
-        end
-        print("RiiHUB: " .. category .. " ESP Disabled")
+    end
+    table.clear(tbl)
+end
+
+-- =========================
+-- PLAYER ESP
+-- =========================
+local function applyPlayer(player)
+    if player == LocalPlayer then return end
+    if not ESPModule.Enabled then return end
+
+    local char = player.Character
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return end
+
+    local isKiller = player.Team and player.Team.Name == "Killer"
+
+    if PlayerHL[player] then return end
+
+    local hl = Instance.new("Highlight")
+    hl.Adornee = char
+    hl.FillTransparency = 1
+    hl.OutlineTransparency = 0
+    hl.OutlineColor = isKiller and COLORS.Killer or COLORS.Survivor
+    hl.Parent = char
+    PlayerHL[player] = hl
+
+    -- ===== NAME + HP =====
+    if _G.RiiHUB_STATE and _G.RiiHUB_STATE.ESP_NAME_HP then
+        local tag = Instance.new("BillboardGui")
+        tag.Adornee = char:FindFirstChild("Head") or char.PrimaryPart
+        tag.AlwaysOnTop = true
+        tag.Size = UDim2.new(0,140,0,28)
+        tag.Parent = char
+        NameHPGui[player] = tag
+
+        local txt = Instance.new("TextLabel", tag)
+        txt.Size = UDim2.fromScale(1,1)
+        txt.BackgroundTransparency = 1
+        txt.Font = Enum.Font.SourceSansBold
+        txt.TextSize = 14
+        txt.TextStrokeTransparency = 0
+        txt.TextColor3 = hl.OutlineColor
+
+        NameHPConn[player] = RunService.Heartbeat:Connect(function()
+            if hum.Health > 0 then
+                txt.Text = string.format("%s [%d]", player.Name, hum.Health)
+            end
+        end)
     end
 end
+
+local function refreshPlayers()
+    for _,p in ipairs(Players:GetPlayers()) do
+        applyPlayer(p)
+    end
+end
+
+-- =========================
+-- OBJECT ESP
+-- =========================
+local function scanObjects()
+    clear(ObjectHL)
+
+    for _,v in ipairs(Workspace:GetDescendants()) do
+        if v:IsA("Model") then
+            local color
+
+            if v.Name == "Generator" then
+                color = COLORS.Generator
+            elseif v.Name == "Palletwrong" then
+                color = COLORS.Pallet
+            elseif v.Name == "ExitLever" or v.Name == "ExitGate" then
+                color = COLORS.Gate
+            end
+
+            if color then
+                local hl = Instance.new("Highlight")
+                hl.Adornee = v
+                hl.FillTransparency = 1
+                hl.OutlineTransparency = 0
+                hl.OutlineColor = color
+                hl.Parent = v
+                ObjectHL[v] = hl
+            end
+        end
+    end
+end
+
+-- =========================
+-- PUBLIC API (TIDAK BERUBAH)
+-- =========================
+function ESPModule:Enable()
+    if self.Enabled then return end
+    self.Enabled = true
+    refreshPlayers()
+    scanObjects()
+end
+
+function ESPModule:Disable()
+    if not self.Enabled then return end
+    self.Enabled = false
+
+    clear(PlayerHL)
+    clear(ObjectHL)
+
+    -- ⬇⬇⬇ FIX UTAMA NAME & HP ⬇⬇⬇
+    clear(NameHPGui)
+    clear(NameHPConn)
+end
+
+return ESPModule
