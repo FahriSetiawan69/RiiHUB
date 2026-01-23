@@ -1,6 +1,6 @@
 --====================================================
--- RiiHUB ESPModule (FINAL FIX)
--- ON/OFF BERSIH • TOGGLE TERPISAH • OPTIMIZED
+-- RiiHUB ESPModule (FINAL FINAL FIX)
+-- Name + HP OFF BENAR • Toggle Aman • Optimized
 --====================================================
 
 local Players    = game:GetService("Players")
@@ -27,10 +27,12 @@ ESP.Flags = {
 -- =========================
 -- STORAGE
 -- =========================
-local PlayerESP  = {}
-local PlayerConn = {}
-local ObjectESP  = {}
-local ScanThread = nil
+local PlayerESP   = {}
+local PlayerConn  = {}
+local NameHPGui   = {}
+local NameHPConn  = {}
+local ObjectESP   = {}
+local ScanThread  = nil
 
 -- =========================
 -- COLORS
@@ -46,14 +48,14 @@ local COLORS = {
 -- =========================
 -- UTILS
 -- =========================
-local function clearTable(t)
-    for k,v in pairs(t) do
+local function clear(tbl)
+    for k,v in pairs(tbl) do
         if typeof(v) == "RBXScriptConnection" then
             v:Disconnect()
         elseif typeof(v) == "Instance" then
             v:Destroy()
         end
-        t[k] = nil
+        tbl[k] = nil
     end
 end
 
@@ -68,6 +70,14 @@ local function removePlayer(player)
     if PlayerConn[player] then
         PlayerConn[player]:Disconnect()
         PlayerConn[player] = nil
+    end
+    if NameHPGui[player] then
+        NameHPGui[player]:Destroy()
+        NameHPGui[player] = nil
+    end
+    if NameHPConn[player] then
+        NameHPConn[player]:Disconnect()
+        NameHPConn[player] = nil
     end
 end
 
@@ -87,13 +97,13 @@ local function applyPlayer(player)
     if isKiller and not ESP.Flags.Killer then return end
     if not isKiller and not ESP.Flags.Survivor then return end
 
+    -- ===== OUTLINE =====
     local hl = Instance.new("Highlight")
     hl.Adornee = char
     hl.FillTransparency = 1
     hl.OutlineTransparency = 0
     hl.OutlineColor = isKiller and COLORS.Killer or COLORS.Survivor
     hl.Parent = char
-
     PlayerESP[player] = hl
 
     -- ===== NAME + HP =====
@@ -102,8 +112,9 @@ local function applyPlayer(player)
         tag.Name = "Rii_NameHP"
         tag.Adornee = char:FindFirstChild("Head") or char.PrimaryPart
         tag.AlwaysOnTop = true
-        tag.Size = UDim2.new(0,130,0,28)
+        tag.Size = UDim2.new(0,140,0,28)
         tag.Parent = char
+        NameHPGui[player] = tag
 
         local txt = Instance.new("TextLabel", tag)
         txt.Size = UDim2.fromScale(1,1)
@@ -113,7 +124,7 @@ local function applyPlayer(player)
         txt.TextStrokeTransparency = 0
         txt.TextColor3 = hl.OutlineColor
 
-        PlayerConn[player] = RunService.Heartbeat:Connect(function()
+        NameHPConn[player] = RunService.Heartbeat:Connect(function()
             if hum.Health > 0 then
                 txt.Text = string.format("%s [%d]", player.Name, hum.Health)
             end
@@ -156,32 +167,18 @@ local function scanObjects()
     for _,v in ipairs(Workspace:GetDescendants()) do
         if v:IsA("Model") then
             if v.Name == "Generator" then
-                if ESP.Flags.Generator then
-                    applyObject(v, COLORS.Generator)
-                else
-                    removeObject(v)
-                end
-
+                ESP.Flags.Generator and applyObject(v, COLORS.Generator) or removeObject(v)
             elseif v.Name == "Palletwrong" then
-                if ESP.Flags.Pallet then
-                    applyObject(v, COLORS.Pallet)
-                else
-                    removeObject(v)
-                end
-
+                ESP.Flags.Pallet and applyObject(v, COLORS.Pallet) or removeObject(v)
             elseif v.Name == "ExitLever" or v.Name == "ExitGate" then
-                if ESP.Flags.Gate then
-                    applyObject(v, COLORS.Gate)
-                else
-                    removeObject(v)
-                end
+                ESP.Flags.Gate and applyObject(v, COLORS.Gate) or removeObject(v)
             end
         end
     end
 end
 
 -- =========================
--- SCAN LOOP (OPTIMIZED)
+-- SCAN LOOP
 -- =========================
 local function startScan()
     if ScanThread then return end
@@ -207,10 +204,11 @@ end
 function ESP:Disable()
     if not self.Enabled then return end
     self.Enabled = false
-
-    clearTable(PlayerESP)
-    clearTable(PlayerConn)
-    clearTable(ObjectESP)
+    clear(PlayerESP)
+    clear(PlayerConn)
+    clear(NameHPGui)
+    clear(NameHPConn)
+    clear(ObjectESP)
 end
 
 function ESP:Set(flag, state)
@@ -219,15 +217,11 @@ function ESP:Set(flag, state)
 
     if not self.Enabled then return end
 
-    -- ===== OFF → BERSIHKAN =====
+    -- ===== OFF CLEANUP =====
     if not state then
-        if flag == "Survivor" or flag == "Killer" or flag == "NameHP" then
-            clearTable(PlayerESP)
-            clearTable(PlayerConn)
-        end
-
-        if flag == "Generator" or flag == "Pallet" or flag == "Gate" then
-            clearTable(ObjectESP)
+        if flag == "NameHP" then
+            clear(NameHPGui)
+            clear(NameHPConn)
         end
     end
 
