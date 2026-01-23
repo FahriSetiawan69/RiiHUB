@@ -1,6 +1,6 @@
 --====================================================
--- RiiHUB ESPModule (FINAL • REACTIVE CATEGORY)
--- Per-kategori REALTIME • Tidak Stuck • Stabil
+-- RiiHUB ESPModule (FINAL FIX)
+-- Player Realtime • Object Reactive • No Stuck
 --====================================================
 
 local Players    = game:GetService("Players")
@@ -19,7 +19,9 @@ local PlayerHL   = {}
 local NameHPGui  = {}
 local NameHPConn = {}
 local ObjectHL   = {}
-local UpdateConn = nil
+
+local PlayerConn = nil
+local ObjectLoop = nil
 
 -- =========================
 -- COLORS
@@ -51,7 +53,7 @@ local function destroy(map)
 end
 
 -- =========================
--- PLAYER UPDATE (REACTIVE)
+-- PLAYER UPDATE (REALTIME)
 -- =========================
 local function updatePlayers()
     if not ESPModule.Enabled then return end
@@ -64,6 +66,14 @@ local function updatePlayers()
             if PlayerHL[player] then
                 PlayerHL[player]:Destroy()
                 PlayerHL[player] = nil
+            end
+            if NameHPGui[player] then
+                NameHPGui[player]:Destroy()
+                NameHPGui[player] = nil
+            end
+            if NameHPConn[player] then
+                NameHPConn[player]:Disconnect()
+                NameHPConn[player] = nil
             end
             continue
         end
@@ -81,11 +91,9 @@ local function updatePlayers()
 
         local allowed =
             (isKiller and state("KILLER_ESP")) or
-            (not isKiller and state("SURVIVOR_ESP"))
+            ((not isKiller) and state("SURVIVOR_ESP"))
 
-        -- =========================
-        -- OUTLINE
-        -- =========================
+        -- ===== OUTLINE =====
         if allowed then
             if not PlayerHL[player] then
                 local hl = Instance.new("Highlight")
@@ -105,9 +113,7 @@ local function updatePlayers()
             end
         end
 
-        -- =========================
-        -- NAME + HP
-        -- =========================
+        -- ===== NAME + HP =====
         if allowed and state("ESP_NAME_HP") then
             if not NameHPGui[player] then
                 local tag = Instance.new("BillboardGui")
@@ -126,7 +132,9 @@ local function updatePlayers()
                 txt.TextColor3 = isKiller and COLORS.Killer or COLORS.Survivor
 
                 NameHPConn[player] = RunService.Heartbeat:Connect(function()
-                    txt.Text = string.format("%s [%d]", player.Name, hum.Health)
+                    if hum.Health > 0 then
+                        txt.Text = string.format("%s [%d]", player.Name, hum.Health)
+                    end
                 end)
             end
         else
@@ -143,17 +151,16 @@ local function updatePlayers()
 end
 
 -- =========================
--- OBJECT ESP (ON DEMAND)
+-- OBJECT UPDATE (INTERVAL)
 -- =========================
 local function updateObjects()
     destroy(ObjectHL)
-
     if not ESPModule.Enabled then return end
 
     for _,v in ipairs(Workspace:GetDescendants()) do
         if not v:IsA("Model") then continue end
 
-        local color
+        local color = nil
 
         if v.Name == "Generator" and state("GENERATOR_ESP") then
             color = COLORS.Generator
@@ -175,6 +182,23 @@ local function updateObjects()
     end
 end
 
+local function anyObjectESPOn()
+    return state("GENERATOR_ESP")
+        or state("PALLET_ESP")
+        or state("GATE_ESP")
+end
+
+local function startObjectLoop()
+    if ObjectLoop then return end
+    ObjectLoop = task.spawn(function()
+        while ESPModule.Enabled and anyObjectESPOn() do
+            updateObjects()
+            task.wait(0.8)
+        end
+        ObjectLoop = nil
+    end)
+end
+
 -- =========================
 -- PUBLIC API
 -- =========================
@@ -182,26 +206,25 @@ function ESPModule:Enable()
     if self.Enabled then return end
     self.Enabled = true
 
-    UpdateConn = RunService.Heartbeat:Connect(function()
-        updatePlayers()
-    end)
-
-    updateObjects()
+    PlayerConn = RunService.Heartbeat:Connect(updatePlayers)
+    startObjectLoop()
 end
 
 function ESPModule:Disable()
     if not self.Enabled then return end
     self.Enabled = false
 
-    if UpdateConn then
-        UpdateConn:Disconnect()
-        UpdateConn = nil
+    if PlayerConn then
+        PlayerConn:Disconnect()
+        PlayerConn = nil
     end
 
     destroy(PlayerHL)
     destroy(NameHPGui)
     destroy(NameHPConn)
     destroy(ObjectHL)
+
+    ObjectLoop = nil
 end
 
 return ESPModule
