@@ -1,6 +1,6 @@
 --====================================================
--- RiiHUB ESPModule (FINAL FINAL FIX)
--- Name + HP OFF BENAR • Toggle Aman • Optimized
+-- RiiHUB ESPModule (FINAL • ANTI STUCK)
+-- Toggle Terpisah • ON/OFF Stabil • Optimized
 --====================================================
 
 local Players    = game:GetService("Players")
@@ -27,12 +27,12 @@ ESP.Flags = {
 -- =========================
 -- STORAGE
 -- =========================
-local PlayerESP   = {}
-local PlayerConn  = {}
-local NameHPGui   = {}
-local NameHPConn  = {}
-local ObjectESP   = {}
-local ScanThread  = nil
+local PlayerHL   = {}   -- Highlight per player
+local PlayerConn = {}   -- CharacterAdded / HP loop
+local NameHPGui  = {}   -- BillboardGui per player
+local NameHPConn = {}   -- Heartbeat per player
+local ObjectHL   = {}   -- Highlight per object
+local ScanThread = nil
 
 -- =========================
 -- COLORS
@@ -48,44 +48,31 @@ local COLORS = {
 -- =========================
 -- UTILS
 -- =========================
-local function clear(tbl)
-    for k,v in pairs(tbl) do
+local function clearMap(map)
+    for k,v in pairs(map) do
         if typeof(v) == "RBXScriptConnection" then
             v:Disconnect()
         elseif typeof(v) == "Instance" then
             v:Destroy()
         end
-        tbl[k] = nil
+        map[k] = nil
     end
 end
 
 -- =========================
--- PLAYER ESP
+-- PLAYER HELPERS
 -- =========================
-local function removePlayer(player)
-    if PlayerESP[player] then
-        PlayerESP[player]:Destroy()
-        PlayerESP[player] = nil
-    end
-    if PlayerConn[player] then
-        PlayerConn[player]:Disconnect()
-        PlayerConn[player] = nil
-    end
-    if NameHPGui[player] then
-        NameHPGui[player]:Destroy()
-        NameHPGui[player] = nil
-    end
-    if NameHPConn[player] then
-        NameHPConn[player]:Disconnect()
-        NameHPConn[player] = nil
-    end
+local function cleanupPlayer(player)
+    if PlayerHL[player] then PlayerHL[player]:Destroy(); PlayerHL[player] = nil end
+    if PlayerConn[player] then PlayerConn[player]:Disconnect(); PlayerConn[player] = nil end
+    if NameHPGui[player] then NameHPGui[player]:Destroy(); NameHPGui[player] = nil end
+    if NameHPConn[player] then NameHPConn[player]:Disconnect(); NameHPConn[player] = nil end
 end
 
 local function applyPlayer(player)
     if not ESP.Enabled or player == LocalPlayer then return end
 
-    removePlayer(player)
-
+    -- Jangan hapus dulu di sini (anti-stuck)
     local char = player.Character
     if not char then return end
 
@@ -93,42 +80,48 @@ local function applyPlayer(player)
     if not hum or hum.Health <= 0 then return end
 
     local isKiller = player.Team and player.Team.Name == "Killer"
-
     if isKiller and not ESP.Flags.Killer then return end
-    if not isKiller and not ESP.Flags.Survivor then return end
+    if (not isKiller) and not ESP.Flags.Survivor then return end
 
     -- ===== OUTLINE =====
-    local hl = Instance.new("Highlight")
-    hl.Adornee = char
-    hl.FillTransparency = 1
-    hl.OutlineTransparency = 0
-    hl.OutlineColor = isKiller and COLORS.Killer or COLORS.Survivor
-    hl.Parent = char
-    PlayerESP[player] = hl
+    if not PlayerHL[player] then
+        local hl = Instance.new("Highlight")
+        hl.Adornee = char
+        hl.FillTransparency = 1
+        hl.OutlineTransparency = 0
+        hl.OutlineColor = isKiller and COLORS.Killer or COLORS.Survivor
+        hl.Parent = char
+        PlayerHL[player] = hl
+    else
+        -- update warna jika role berubah
+        PlayerHL[player].OutlineColor = isKiller and COLORS.Killer or COLORS.Survivor
+    end
 
     -- ===== NAME + HP =====
     if ESP.Flags.NameHP then
-        local tag = Instance.new("BillboardGui")
-        tag.Name = "Rii_NameHP"
-        tag.Adornee = char:FindFirstChild("Head") or char.PrimaryPart
-        tag.AlwaysOnTop = true
-        tag.Size = UDim2.new(0,140,0,28)
-        tag.Parent = char
-        NameHPGui[player] = tag
+        if not NameHPGui[player] then
+            local tag = Instance.new("BillboardGui")
+            tag.Name = "Rii_NameHP"
+            tag.Adornee = char:FindFirstChild("Head") or char.PrimaryPart
+            tag.AlwaysOnTop = true
+            tag.Size = UDim2.new(0,140,0,28)
+            tag.Parent = char
+            NameHPGui[player] = tag
 
-        local txt = Instance.new("TextLabel", tag)
-        txt.Size = UDim2.fromScale(1,1)
-        txt.BackgroundTransparency = 1
-        txt.Font = Enum.Font.SourceSansBold
-        txt.TextSize = 14
-        txt.TextStrokeTransparency = 0
-        txt.TextColor3 = hl.OutlineColor
+            local txt = Instance.new("TextLabel", tag)
+            txt.Size = UDim2.fromScale(1,1)
+            txt.BackgroundTransparency = 1
+            txt.Font = Enum.Font.SourceSansBold
+            txt.TextSize = 14
+            txt.TextStrokeTransparency = 0
+            txt.TextColor3 = PlayerHL[player].OutlineColor
 
-        NameHPConn[player] = RunService.Heartbeat:Connect(function()
-            if hum.Health > 0 then
-                txt.Text = string.format("%s [%d]", player.Name, hum.Health)
-            end
-        end)
+            NameHPConn[player] = RunService.Heartbeat:Connect(function()
+                if hum.Health > 0 then
+                    txt.Text = string.format("%s [%d]", player.Name, hum.Health)
+                end
+            end)
+        end
     end
 end
 
@@ -139,31 +132,28 @@ local function refreshPlayers()
 end
 
 -- =========================
--- OBJECT ESP
+-- OBJECT HELPERS
 -- =========================
 local function removeObject(obj)
-    if ObjectESP[obj] then
-        ObjectESP[obj]:Destroy()
-        ObjectESP[obj] = nil
+    if ObjectHL[obj] then
+        ObjectHL[obj]:Destroy()
+        ObjectHL[obj] = nil
     end
 end
 
 local function applyObject(obj, color)
-    if ObjectESP[obj] then return end
-
+    if ObjectHL[obj] then return end
     local hl = Instance.new("Highlight")
     hl.Adornee = obj
     hl.FillTransparency = 1
     hl.OutlineTransparency = 0
     hl.OutlineColor = color
     hl.Parent = obj
-
-    ObjectESP[obj] = hl
+    ObjectHL[obj] = hl
 end
 
 local function scanObjects()
     if not ESP.Enabled then return end
-
     for _,v in ipairs(Workspace:GetDescendants()) do
         if v:IsA("Model") then
             if v.Name == "Generator" then
@@ -178,7 +168,7 @@ local function scanObjects()
 end
 
 -- =========================
--- SCAN LOOP
+-- SCAN LOOP (OPTIMIZED)
 -- =========================
 local function startScan()
     if ScanThread then return end
@@ -197,6 +187,24 @@ end
 function ESP:Enable()
     if self.Enabled then return end
     self.Enabled = true
+
+    -- hook respawn
+    for _,p in ipairs(Players:GetPlayers()) do
+        PlayerConn[p] = p.CharacterAdded:Connect(function()
+            task.wait(0.1)
+            applyPlayer(p)
+        end)
+    end
+    PlayerConn._add = Players.PlayerAdded:Connect(function(p)
+        PlayerConn[p] = p.CharacterAdded:Connect(function()
+            task.wait(0.1)
+            applyPlayer(p)
+        end)
+    end)
+    PlayerConn._rem = Players.PlayerRemoving:Connect(function(p)
+        cleanupPlayer(p)
+    end)
+
     refreshPlayers()
     startScan()
 end
@@ -204,27 +212,34 @@ end
 function ESP:Disable()
     if not self.Enabled then return end
     self.Enabled = false
-    clear(PlayerESP)
-    clear(PlayerConn)
-    clear(NameHPGui)
-    clear(NameHPConn)
-    clear(ObjectESP)
+
+    clearMap(PlayerHL)
+    clearMap(PlayerConn)
+    clearMap(NameHPGui)
+    clearMap(NameHPConn)
+    clearMap(ObjectHL)
 end
 
 function ESP:Set(flag, state)
     if self.Flags[flag] == nil then return end
     self.Flags[flag] = state
-
     if not self.Enabled then return end
 
-    -- ===== OFF CLEANUP =====
+    -- ===== OFF: BERSIHKAN TERKAIT SAJA =====
     if not state then
         if flag == "NameHP" then
-            clear(NameHPGui)
-            clear(NameHPConn)
+            clearMap(NameHPGui)
+            clearMap(NameHPConn)
+        elseif flag == "Survivor" or flag == "Killer" then
+            -- hapus outline player saja, tanpa ganggu NameHP flag lain
+            for p,_ in pairs(PlayerHL) do cleanupPlayer(p) end
+        elseif flag == "Generator" or flag == "Pallet" or flag == "Gate" then
+            clearMap(ObjectHL)
         end
+        return
     end
 
+    -- ===== ON: APPLY TANPA CLEAR =====
     refreshPlayers()
     scanObjects()
 end
