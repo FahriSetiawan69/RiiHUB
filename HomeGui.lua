@@ -1,343 +1,139 @@
---==================================================
--- RiiHUB HomeGui (FINAL FIX)
--- Layout & Style TIDAK DIUBAH
---==================================================
+-- RiiHUB HomeGui.lua (FIXED)
+-- ESP GLOBAL REMOVED (Per-category control only)
 
 local Players = game:GetService("Players")
-local UIS = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
---========================
--- DESTROY OLD GUI
---========================
-pcall(function()
-    local old = PlayerGui:FindFirstChild("RiiHUB_GUI")
-    if old then old:Destroy() end
-end)
-
---========================
--- GLOBAL STATE (DEFAULT OFF)
---========================
-_G.RiiHUB_STATE = _G.RiiHUB_STATE or {
-    ESP = false,
-    AIM = false,
-    HITBOX = false,
-    SKILL = false,
-    EVENT = false,
-
-    -- ESP FLAGS
-    SURVIVOR_ESP  = false,
-    KILLER_ESP    = false,
-    GENERATOR_ESP = false,
-    PALLET_ESP    = false,
-    GATE_ESP      = false,
-    ESP_NAME_HP   = false,
-}
-
---========================
--- ROOT GUI
---========================
-local gui = Instance.new("ScreenGui")
-gui.Name = "RiiHUB_GUI"
-gui.IgnoreGuiInset = true
-gui.ResetOnSpawn = false
-gui.DisplayOrder = 1000
-gui.Parent = PlayerGui
-
---========================
--- MAIN WINDOW
---========================
-local main = Instance.new("Frame")
-main.Size = UDim2.fromOffset(640, 420)
-main.Position = UDim2.fromScale(0.5, 0.5)
-main.AnchorPoint = Vector2.new(0.5, 0.5)
-main.BackgroundColor3 = Color3.fromRGB(32, 14, 45)
-main.BackgroundTransparency = 0.05
-main.BorderSizePixel = 0
-main.Parent = gui
-Instance.new("UICorner", main).CornerRadius = UDim.new(0, 14)
-
-local stroke = Instance.new("UIStroke", main)
-stroke.Color = Color3.fromRGB(170, 80, 255)
-stroke.Thickness = 1.5
-stroke.Transparency = 0.25
-
---========================
--- HEADER
---========================
-local header = Instance.new("Frame", main)
-header.Size = UDim2.new(1, 0, 0, 42)
-header.BackgroundTransparency = 1
-
-local title = Instance.new("TextLabel", header)
-title.Size = UDim2.new(1, -80, 1, 0)
-title.Position = UDim2.fromOffset(12, 0)
-title.Text = "RiiHUB"
-title.Font = Enum.Font.GothamBold
-title.TextSize = 22
-title.TextXAlignment = Enum.TextXAlignment.Left
-title.TextColor3 = Color3.fromRGB(235, 215, 255)
-title.BackgroundTransparency = 1
-
-local btnMin = Instance.new("TextButton", header)
-btnMin.Size = UDim2.fromOffset(28, 28)
-btnMin.Position = UDim2.new(1, -64, 0.5, -14)
-btnMin.Text = "–"
-btnMin.Font = Enum.Font.GothamBold
-btnMin.TextSize = 22
-btnMin.TextColor3 = Color3.fromRGB(240,240,255)
-btnMin.BackgroundColor3 = Color3.fromRGB(90, 40, 150)
-Instance.new("UICorner", btnMin)
-
-local btnClose = Instance.new("TextButton", header)
-btnClose.Size = UDim2.fromOffset(28, 28)
-btnClose.Position = UDim2.new(1, -32, 0.5, -14)
-btnClose.Text = "X"
-btnClose.Font = Enum.Font.GothamBold
-btnClose.TextSize = 16
-btnClose.TextColor3 = Color3.fromRGB(255,200,200)
-btnClose.BackgroundColor3 = Color3.fromRGB(140, 50, 80)
-Instance.new("UICorner", btnClose)
-
---========================
--- DRAG WINDOW
---========================
-do
-    local dragging, startInput, startPos
-    header.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            startInput = i.Position
-            startPos = main.Position
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-            local d = i.Position - startInput
-            main.Position = startPos + UDim2.fromOffset(d.X, d.Y)
-        end
-    end)
-    UIS.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
+if PlayerGui:FindFirstChild("RiiHUB_GUI") then
+    PlayerGui.RiiHUB_GUI:Destroy()
 end
 
---========================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "RiiHUB_GUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+ScreenGui.Parent = PlayerGui
+
+-- =========================
+-- UI ROOT
+-- =========================
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.fromScale(0.85, 0.85)
+Main.Position = UDim2.fromScale(0.5, 0.5)
+Main.AnchorPoint = Vector2.new(0.5, 0.5)
+Main.BackgroundColor3 = Color3.fromRGB(45, 20, 65)
+Main.BorderSizePixel = 0
+
+local UICorner = Instance.new("UICorner", Main)
+UICorner.CornerRadius = UDim.new(0, 18)
+
+-- =========================
 -- SIDEBAR
---========================
-local sidebar = Instance.new("Frame", main)
-sidebar.Size = UDim2.new(0, 160, 1, -42)
-sidebar.Position = UDim2.fromOffset(0, 42)
-sidebar.BackgroundColor3 = Color3.fromRGB(22, 10, 32)
-sidebar.BorderSizePixel = 0
-Instance.new("UICorner", sidebar).CornerRadius = UDim.new(0, 10)
+-- =========================
+local Sidebar = Instance.new("Frame", Main)
+Sidebar.Size = UDim2.fromScale(0.18, 1)
+Sidebar.BackgroundColor3 = Color3.fromRGB(30, 12, 50)
+Sidebar.BorderSizePixel = 0
 
---========================
--- PANEL
---========================
-local panel = Instance.new("Frame", main)
-panel.Size = UDim2.new(1, -170, 1, -42)
-panel.Position = UDim2.new(0, 170, 0, 42)
-panel.BackgroundTransparency = 1
-panel.Parent = main
-
-local layout = Instance.new("UIListLayout", panel)
-layout.Padding = UDim.new(0, 8)
-
-local function clearPanel()
-    for _,c in ipairs(panel:GetChildren()) do
-        if not c:IsA("UIListLayout") then
-            c:Destroy()
-        end
-    end
-end
-
---========================
--- TABS
---========================
-local tabs = {
-    { Name = "ESP", Key = "ESP" },
-    { Name = "Survivor", Key = "SURVIVOR" },
-    { Name = "Killer", Key = "KILLER" },
-    { Name = "Other", Key = "OTHER" },
+local Tabs = {
+    "ESP",
+    "SURVIVOR",
+    "KILLER",
+    "OTHER"
 }
 
 local selectedTab = "ESP"
+local tabButtons = {}
 
-local function makeTabButton(info, idx)
-    local btn = Instance.new("TextButton", sidebar)
-    btn.Size = UDim2.new(1, -16, 0, 34)
-    btn.Position = UDim2.fromOffset(8, 8 + (idx-1)*40)
-    btn.Text = info.Name
-    btn.Font = Enum.Font.Gotham
-    btn.TextSize = 18
-    btn.TextColor3 = Color3.fromRGB(230,230,255)
-    btn.BackgroundColor3 = Color3.fromRGB(42, 16, 60)
-    Instance.new("UICorner", btn)
+local function createTab(name, order)
+    local btn = Instance.new("TextButton", Sidebar)
+    btn.Size = UDim2.new(1, 0, 0, 50)
+    btn.Position = UDim2.new(0, 0, 0, (order - 1) * 55 + 20)
+    btn.Text = name
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 14
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.BackgroundColor3 = Color3.fromRGB(60, 30, 90)
+    btn.BorderSizePixel = 0
+
     btn.MouseButton1Click:Connect(function()
-        selectedTab = info.Key
+        selectedTab = name
         updatePanel()
     end)
+
+    tabButtons[name] = btn
 end
 
-for i,t in ipairs(tabs) do
-    makeTabButton(t,i)
+for i,tab in ipairs(Tabs) do
+    createTab(tab, i)
 end
 
---========================
--- TOGGLE CREATOR (FIXED)
---========================
-local function makeToggle(title, key, module)
-    local row = Instance.new("Frame", panel)
-    row.Size = UDim2.new(1, -10, 0, 32)
-    row.BackgroundTransparency = 1
+-- =========================
+-- CONTENT PANEL
+-- =========================
+local Panel = Instance.new("Frame", Main)
+Panel.Position = UDim2.fromScale(0.2, 0.05)
+Panel.Size = UDim2.fromScale(0.78, 0.9)
+Panel.BackgroundTransparency = 1
 
-    local lbl = Instance.new("TextLabel", row)
-    lbl.Size = UDim2.new(0.6, 0, 1, 0)
-    lbl.Text = title
-    lbl.Font = Enum.Font.Gotham
-    lbl.TextSize = 16
-    lbl.TextColor3 = Color3.fromRGB(235,235,255)
-    lbl.BackgroundTransparency = 1
-
-    local btn = Instance.new("TextButton", row)
-    btn.Size = UDim2.new(0.4, -6, 1, 0)
-    btn.Position = UDim2.new(0.6, 6, 0, 0)
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 16
-    btn.TextColor3 = Color3.fromRGB(255,255,255)
-    btn.BackgroundColor3 = Color3.fromRGB(120, 60, 200)
-    Instance.new("UICorner", btn)
-
-    local function refresh()
-        btn.Text = (_G.RiiHUB_STATE[key] and "ON" or "OFF")
+local function clearPanel()
+    for _,v in ipairs(Panel:GetChildren()) do
+        v:Destroy()
     end
+end
 
-    refresh()
+-- =========================
+-- TOGGLE MAKER
+-- =========================
+local function makeToggle(text, flag, module)
+    local btn = Instance.new("TextButton", Panel)
+    btn.Size = UDim2.new(1, -20, 0, 40)
+    btn.BackgroundColor3 = Color3.fromRGB(90, 50, 140)
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 14
+    btn.Text = text
+    btn.BorderSizePixel = 0
+
+    local state = false
 
     btn.MouseButton1Click:Connect(function()
-        _G.RiiHUB_STATE[key] = not _G.RiiHUB_STATE[key]
-
-        -- ===== ESP MODULE HANDLING =====
-        if module == _G.ESPModule then
-            if key == "ESP" then
-                if _G.RiiHUB_STATE[key] then
-                    module:Enable()
-                else
-                    module:Disable()
-                end
-            else
-                if not module.Enabled then
-                    module:Enable()
-                end
-
-                local map = {
-                    SURVIVOR_ESP  = "Survivor",
-                    KILLER_ESP    = "Killer",
-                    GENERATOR_ESP = "Generator",
-                    PALLET_ESP    = "Pallet",
-                    GATE_ESP      = "Gate",
-                    ESP_NAME_HP   = "NameHP",
-                }
-
-                local flag = map[key]
-                if flag then
-                    module:Set(flag, _G.RiiHUB_STATE[key])
-                end
-            end
-
-        -- ===== OTHER MODULES =====
-        elseif module and module.Enable and module.Disable then
-            (_G.RiiHUB_STATE[key] and module.Enable or module.Disable)(module)
+        state = not state
+        btn.Text = text .. " : " .. (state and "ON" or "OFF")
+        if module and module.Set then
+            module:Set(flag, state)
         end
-
-        refresh()
     end)
 end
 
---========================
--- PANEL CONTENT
---========================
+-- =========================
+-- UPDATE PANEL
+-- =========================
 function updatePanel()
     clearPanel()
 
     if selectedTab == "ESP" then
-        makeToggle("ESP", "ESP", _G.ESPModule)
-        makeToggle("Survivor ESP", "SURVIVOR_ESP", _G.ESPModule)
-        makeToggle("Killer ESP", "KILLER_ESP", _G.ESPModule)
-        makeToggle("Generator ESP", "GENERATOR_ESP", _G.ESPModule)
-        makeToggle("Pallet ESP", "PALLET_ESP", _G.ESPModule)
-        makeToggle("Gate ESP", "GATE_ESP", _G.ESPModule)
-        makeToggle("Nama + HP", "ESP_NAME_HP", _G.ESPModule)
+        local info = Instance.new("TextLabel", Panel)
+        info.Size = UDim2.new(1,0,0,40)
+        info.Text = "ESP dikontrol per kategori."
+        info.Font = Enum.Font.Gotham
+        info.TextSize = 14
+        info.TextColor3 = Color3.fromRGB(200,180,255)
+        info.BackgroundTransparency = 1
 
     elseif selectedTab == "SURVIVOR" then
-        makeToggle("Aim Assist", "AIM", _G.AimAssistModule)
-        makeToggle("HitBox Killer", "HITBOX", _G.HitBoxKiller)
-        makeToggle("Skill Check", "SKILL", _G.SkillCheckGenerator)
+        makeToggle("Survivor ESP", "Survivor", _G.ESPModule)
+        makeToggle("Nama + HP", "NameHP", _G.ESPModule)
 
     elseif selectedTab == "KILLER" then
-        local txt = Instance.new("TextLabel", panel)
-        txt.Text = "Fitur Killer akan ditambahkan."
-        txt.Font = Enum.Font.Gotham
-        txt.TextSize = 14
-        txt.TextColor3 = Color3.fromRGB(200,190,230)
-        txt.BackgroundTransparency = 1
+        makeToggle("Killer ESP", "Killer", _G.ESPModule)
 
     elseif selectedTab == "OTHER" then
-        makeToggle("Event", "EVENT", _G.EventModule)
+        makeToggle("Generator ESP", "Generator", _G.ESPModule)
+        makeToggle("Pallet ESP", "Pallet", _G.ESPModule)
+        makeToggle("Gate ESP", "Gate", _G.ESPModule)
     end
 end
 
-task.wait(0.1)
 updatePanel()
-
---========================
--- MINIMIZE
---========================
-btnMin.MouseButton1Click:Connect(function()
-    main.Visible = false
-    local floating = Instance.new("TextButton", gui)
-    floating.Size = UDim2.fromOffset(120, 36)
-    floating.Position = UDim2.fromScale(0.1, 0.5)
-    floating.Text = "RiiHUB"
-    floating.Font = Enum.Font.GothamBold
-    floating.TextSize = 16
-    floating.TextColor3 = Color3.fromRGB(255,255,255)
-    floating.BackgroundColor3 = Color3.fromRGB(120, 60, 200)
-    Instance.new("UICorner", floating)
-
-    do
-        local dragging, start, pos
-        floating.InputBegan:Connect(function(i)
-            if i.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = true
-                start = i.Position
-                pos = floating.Position
-            end
-        end)
-        UIS.InputChanged:Connect(function(i)
-            if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-                local d = i.Position - start
-                floating.Position = pos + UDim2.fromOffset(d.X, d.Y)
-            end
-        end)
-        UIS.InputEnded:Connect(function()
-            dragging = false
-        end)
-    end
-
-    floating.MouseButton1Click:Connect(function()
-        floating:Destroy()
-        main.Visible = true
-    end)
-end)
-
---========================
--- CLOSE
---========================
-btnClose.MouseButton1Click:Connect(function()
-    gui:Destroy()
-end)
