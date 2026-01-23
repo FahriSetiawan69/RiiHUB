@@ -1,15 +1,27 @@
 --====================================================
--- RiiHUB ESPModule (FIXED, NO AUTO-ON, SAFE)
+-- RiiHUB ESPModule (MODULAR + OPTIMIZED)
 --====================================================
 
-local Players     = game:GetService("Players")
-local RunService  = game:GetService("RunService")
-local Workspace   = game:GetService("Workspace")
+local Players    = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace  = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
 
-local ESPModule = {}
-ESPModule.Enabled = false
+local ESP = {}
+
+-- =========================
+-- STATE (SEMUA OFF)
+-- =========================
+ESP.Enabled = false
+ESP.Flags = {
+    Survivor = false,
+    Killer   = false,
+    Generator = false,
+    Pallet   = false,
+    Gate     = false,
+    NameHP   = false,
+}
 
 -- =========================
 -- STORAGE
@@ -17,83 +29,94 @@ ESPModule.Enabled = false
 local PlayerESP = {}
 local ObjectESP = {}
 local Connections = {}
+local ScanLoop = nil
 
 -- =========================
--- COLORS (LOGIKA LAMA TETAP)
+-- COLORS
 -- =========================
 local COLORS = {
-    Survivor  = Color3.fromRGB(0, 255, 120),
-    Killer    = Color3.fromRGB(255, 70, 70),
-    Generator = Color3.fromRGB(255, 220, 80),
-    Pallet    = Color3.fromRGB(255, 140, 0),
-    Gate      = Color3.fromRGB(80, 120, 255),
+    Survivor  = Color3.fromRGB(0,255,120),
+    Killer    = Color3.fromRGB(255,70,70),
+    Generator = Color3.fromRGB(255,220,80),
+    Pallet    = Color3.fromRGB(255,140,0),
+    Gate      = Color3.fromRGB(80,120,255),
 }
 
 -- =========================
--- CLEANUP
+-- UTILS
 -- =========================
-local function clearTable(t)
-    for k,v in pairs(t) do
-        if typeof(v) == "Instance" then
-            v:Destroy()
-        elseif typeof(v) == "RBXScriptConnection" then
-            v:Disconnect()
-        end
-        t[k] = nil
+local function clear(tbl)
+    for _,v in pairs(tbl) do
+        if typeof(v) == "Instance" then v:Destroy() end
+        if typeof(v) == "RBXScriptConnection" then v:Disconnect() end
+    end
+    table.clear(tbl)
+end
+
+-- =========================
+-- PLAYER ESP
+-- =========================
+local function applyPlayerESP(player)
+    if not ESP.Enabled or player == LocalPlayer then return end
+    if PlayerESP[player] then PlayerESP[player]:Destroy() end
+
+    local char = player.Character
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return end
+
+    local isKiller = player.Team and player.Team.Name == "Killer"
+
+    if (isKiller and not ESP.Flags.Killer) or (not isKiller and not ESP.Flags.Survivor) then
+        return
+    end
+
+    local hl = Instance.new("Highlight")
+    hl.Adornee = char
+    hl.FillTransparency = 1
+    hl.OutlineTransparency = 0
+    hl.OutlineColor = isKiller and COLORS.Killer or COLORS.Survivor
+    hl.Parent = char
+
+    -- NAME + HP
+    if ESP.Flags.NameHP then
+        local tag = Instance.new("BillboardGui")
+        tag.Size = UDim2.new(0,120,0,30)
+        tag.AlwaysOnTop = true
+        tag.Adornee = char:FindFirstChild("Head") or char.PrimaryPart
+        tag.Parent = char
+
+        local lbl = Instance.new("TextLabel", tag)
+        lbl.Size = UDim2.fromScale(1,1)
+        lbl.BackgroundTransparency = 1
+        lbl.TextColor3 = hl.OutlineColor
+        lbl.TextStrokeTransparency = 0
+        lbl.TextSize = 14
+        lbl.Font = Enum.Font.SourceSansBold
+
+        Connections[player] = RunService.Heartbeat:Connect(function()
+            if hum.Health > 0 then
+                lbl.Text = string.format("%s [%d]", player.Name, hum.Health)
+            end
+        end)
+    end
+
+    PlayerESP[player] = hl
+end
+
+local function refreshPlayers()
+    for _,p in ipairs(Players:GetPlayers()) do
+        if PlayerESP[p] then PlayerESP[p]:Destroy() PlayerESP[p]=nil end
+        if Connections[p] then Connections[p]:Disconnect() Connections[p]=nil end
+        applyPlayerESP(p)
     end
 end
 
 -- =========================
--- PLAYER ESP (LOGIKA LAMA)
+-- OBJECT ESP
 -- =========================
-local function createPlayerESP(player)
-    if not ESPModule.Enabled then return end
-    if player == LocalPlayer then return end
-    if PlayerESP[player] then return end
-
-    local function apply(character)
-        if not ESPModule.Enabled then return end
-        if not character then return end
-
-        local hum = character:FindFirstChildOfClass("Humanoid")
-        local root = character:FindFirstChild("HumanoidRootPart")
-        if not hum or hum.Health <= 0 or not root then return end
-
-        local isKiller = player.Team and player.Team.Name == "Killer"
-
-        local hl = Instance.new("Highlight")
-        hl.Adornee = character
-        hl.FillTransparency = 1
-        hl.OutlineTransparency = 0
-        hl.OutlineColor = isKiller and COLORS.Killer or COLORS.Survivor
-        hl.Parent = character
-
-        PlayerESP[player] = hl
-    end
-
-    if player.Character then
-        apply(player.Character)
-    end
-
-    Connections[player] = player.CharacterAdded:Connect(apply)
-end
-
-local function removePlayerESP(player)
-    if PlayerESP[player] then
-        PlayerESP[player]:Destroy()
-        PlayerESP[player] = nil
-    end
-
-    if Connections[player] then
-        Connections[player]:Disconnect()
-        Connections[player] = nil
-    end
-end
-
--- =========================
--- OBJECT ESP (GEN / PALLET / GATE)
--- =========================
-local function createObjectESP(obj, color)
+local function applyObjectESP(obj, color)
     if ObjectESP[obj] then return end
 
     local hl = Instance.new("Highlight")
@@ -104,69 +127,63 @@ local function createObjectESP(obj, color)
     hl.Parent = obj
 
     ObjectESP[obj] = hl
-
-    obj.AncestryChanged:Connect(function(_, parent)
-        if not parent and ObjectESP[obj] then
-            ObjectESP[obj]:Destroy()
-            ObjectESP[obj] = nil
-        end
-    end)
 end
 
 local function scanObjects()
     for _,v in ipairs(Workspace:GetDescendants()) do
-        if not ESPModule.Enabled then return end
+        if not ESP.Enabled then return end
 
         if v:IsA("Model") then
-            if v.Name == "Generator" then
-                createObjectESP(v, COLORS.Generator)
+            if v.Name == "Generator" and ESP.Flags.Generator then
+                applyObjectESP(v, COLORS.Generator)
 
-            elseif v.Name == "Palletwrong" then
-                createObjectESP(v, COLORS.Pallet)
+            elseif v.Name == "Palletwrong" and ESP.Flags.Pallet then
+                applyObjectESP(v, COLORS.Pallet)
 
-            elseif v.Name == "ExitLever" or v.Name == "ExitGate" then
-                createObjectESP(v, COLORS.Gate)
+            elseif (v.Name == "ExitLever" or v.Name == "ExitGate") and ESP.Flags.Gate then
+                applyObjectESP(v, COLORS.Gate)
             end
         end
     end
 end
 
 -- =========================
--- ENABLE
+-- LOOP (OPTIMIZED)
 -- =========================
-function ESPModule:Enable()
-    if self.Enabled then return end
-    self.Enabled = true
-    print("[ESPModule] Enabled")
-
-    -- Player ESP
-    for _,p in ipairs(Players:GetPlayers()) do
-        createPlayerESP(p)
-    end
-
-    Connections.playerAdded = Players.PlayerAdded:Connect(createPlayerESP)
-    Connections.playerRemoving = Players.PlayerRemoving:Connect(removePlayerESP)
-
-    -- Object ESP
-    scanObjects()
-    Connections.descendantAdded = Workspace.DescendantAdded:Connect(function()
-        if ESPModule.Enabled then
+local function startScanLoop()
+    ScanLoop = task.spawn(function()
+        while ESP.Enabled do
             scanObjects()
+            task.wait(1) -- OPTIMASI
         end
     end)
 end
 
 -- =========================
--- DISABLE
+-- PUBLIC API
 -- =========================
-function ESPModule:Disable()
-    if not self.Enabled then return end
-    self.Enabled = false
-    print("[ESPModule] Disabled")
-
-    clearTable(PlayerESP)
-    clearTable(ObjectESP)
-    clearTable(Connections)
+function ESP:Enable()
+    if self.Enabled then return end
+    self.Enabled = true
+    refreshPlayers()
+    startScanLoop()
 end
 
-return ESPModule
+function ESP:Disable()
+    self.Enabled = false
+    clear(PlayerESP)
+    clear(ObjectESP)
+    clear(Connections)
+end
+
+function ESP:Set(flag, state)
+    if self.Flags[flag] == nil then return end
+    self.Flags[flag] = state
+
+    if self.Enabled then
+        refreshPlayers()
+        scanObjects()
+    end
+end
+
+return ESP
