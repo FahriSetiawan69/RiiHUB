@@ -1,6 +1,6 @@
 --====================================================
--- RiiHUB ESPModule (STABLE + CATEGORY FILTER)
--- ESP Aman • Tidak Stuck • Kategori Aktif
+-- RiiHUB ESPModule (FINAL • REACTIVE CATEGORY)
+-- Per-kategori REALTIME • Tidak Stuck • Stabil
 --====================================================
 
 local Players    = game:GetService("Players")
@@ -19,6 +19,7 @@ local PlayerHL   = {}
 local NameHPGui  = {}
 local NameHPConn = {}
 local ObjectHL   = {}
+local UpdateConn = nil
 
 -- =========================
 -- COLORS
@@ -34,116 +35,140 @@ local COLORS = {
 -- =========================
 -- UTILS
 -- =========================
-local function clear(tbl)
-    for _,v in pairs(tbl) do
+local function state(key)
+    return _G.RiiHUB_STATE and _G.RiiHUB_STATE[key] == true
+end
+
+local function destroy(map)
+    for _,v in pairs(map) do
         if typeof(v) == "RBXScriptConnection" then
             v:Disconnect()
         elseif typeof(v) == "Instance" then
             v:Destroy()
         end
     end
-    table.clear(tbl)
-end
-
-local function state(key)
-    return _G.RiiHUB_STATE and _G.RiiHUB_STATE[key]
+    table.clear(map)
 end
 
 -- =========================
--- PLAYER ESP
+-- PLAYER UPDATE (REACTIVE)
 -- =========================
-local function applyPlayer(player)
+local function updatePlayers()
     if not ESPModule.Enabled then return end
-    if player == LocalPlayer then return end
 
-    local char = player.Character
-    if not char then return end
+    for _,player in ipairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
 
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then return end
+        local char = player.Character
+        if not char then
+            if PlayerHL[player] then
+                PlayerHL[player]:Destroy()
+                PlayerHL[player] = nil
+            end
+            continue
+        end
 
-    local isKiller = player.Team and player.Team.Name == "Killer"
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then
+            if PlayerHL[player] then
+                PlayerHL[player]:Destroy()
+                PlayerHL[player] = nil
+            end
+            continue
+        end
 
-    -- ===== FILTER KATEGORI =====
-    if isKiller and not state("KILLER_ESP") then return end
-    if (not isKiller) and not state("SURVIVOR_ESP") then return end
+        local isKiller = player.Team and player.Team.Name == "Killer"
 
-    if PlayerHL[player] then return end
+        local allowed =
+            (isKiller and state("KILLER_ESP")) or
+            (not isKiller and state("SURVIVOR_ESP"))
 
-    local hl = Instance.new("Highlight")
-    hl.Adornee = char
-    hl.FillTransparency = 1
-    hl.OutlineTransparency = 0
-    hl.OutlineColor = isKiller and COLORS.Killer or COLORS.Survivor
-    hl.Parent = char
-    PlayerHL[player] = hl
+        -- =========================
+        -- OUTLINE
+        -- =========================
+        if allowed then
+            if not PlayerHL[player] then
+                local hl = Instance.new("Highlight")
+                hl.Adornee = char
+                hl.FillTransparency = 1
+                hl.OutlineTransparency = 0
+                hl.OutlineColor = isKiller and COLORS.Killer or COLORS.Survivor
+                hl.Parent = char
+                PlayerHL[player] = hl
+            else
+                PlayerHL[player].OutlineColor = isKiller and COLORS.Killer or COLORS.Survivor
+            end
+        else
+            if PlayerHL[player] then
+                PlayerHL[player]:Destroy()
+                PlayerHL[player] = nil
+            end
+        end
 
-    -- ===== NAME + HP =====
-    if state("ESP_NAME_HP") then
-        local tag = Instance.new("BillboardGui")
-        tag.Adornee = char:FindFirstChild("Head") or char.PrimaryPart
-        tag.AlwaysOnTop = true
-        tag.Size = UDim2.new(0,140,0,28)
-        tag.Parent = char
-        NameHPGui[player] = tag
+        -- =========================
+        -- NAME + HP
+        -- =========================
+        if allowed and state("ESP_NAME_HP") then
+            if not NameHPGui[player] then
+                local tag = Instance.new("BillboardGui")
+                tag.Adornee = char:FindFirstChild("Head") or char.PrimaryPart
+                tag.AlwaysOnTop = true
+                tag.Size = UDim2.new(0,140,0,28)
+                tag.Parent = char
+                NameHPGui[player] = tag
 
-        local txt = Instance.new("TextLabel", tag)
-        txt.Size = UDim2.fromScale(1,1)
-        txt.BackgroundTransparency = 1
-        txt.Font = Enum.Font.SourceSansBold
-        txt.TextSize = 14
-        txt.TextStrokeTransparency = 0
-        txt.TextColor3 = hl.OutlineColor
+                local txt = Instance.new("TextLabel", tag)
+                txt.Size = UDim2.fromScale(1,1)
+                txt.BackgroundTransparency = 1
+                txt.Font = Enum.Font.SourceSansBold
+                txt.TextSize = 14
+                txt.TextStrokeTransparency = 0
+                txt.TextColor3 = isKiller and COLORS.Killer or COLORS.Survivor
 
-        NameHPConn[player] = RunService.Heartbeat:Connect(function()
-            txt.Text = string.format("%s [%d]", player.Name, hum.Health)
-        end)
-    end
-end
-
-local function refreshPlayers()
-    clear(PlayerHL)
-    clear(NameHPGui)
-    clear(NameHPConn)
-
-    for _,p in ipairs(Players:GetPlayers()) do
-        applyPlayer(p)
+                NameHPConn[player] = RunService.Heartbeat:Connect(function()
+                    txt.Text = string.format("%s [%d]", player.Name, hum.Health)
+                end)
+            end
+        else
+            if NameHPGui[player] then
+                NameHPGui[player]:Destroy()
+                NameHPGui[player] = nil
+            end
+            if NameHPConn[player] then
+                NameHPConn[player]:Disconnect()
+                NameHPConn[player] = nil
+            end
+        end
     end
 end
 
 -- =========================
--- OBJECT ESP
+-- OBJECT ESP (ON DEMAND)
 -- =========================
-local function scanObjects()
-    clear(ObjectHL)
+local function updateObjects()
+    destroy(ObjectHL)
+
+    if not ESPModule.Enabled then return end
 
     for _,v in ipairs(Workspace:GetDescendants()) do
         if not v:IsA("Model") then continue end
 
+        local color
+
         if v.Name == "Generator" and state("GENERATOR_ESP") then
-            local hl = Instance.new("Highlight")
-            hl.Adornee = v
-            hl.FillTransparency = 1
-            hl.OutlineTransparency = 0
-            hl.OutlineColor = COLORS.Generator
-            hl.Parent = v
-            ObjectHL[v] = hl
-
+            color = COLORS.Generator
         elseif v.Name == "Palletwrong" and state("PALLET_ESP") then
-            local hl = Instance.new("Highlight")
-            hl.Adornee = v
-            hl.FillTransparency = 1
-            hl.OutlineTransparency = 0
-            hl.OutlineColor = COLORS.Pallet
-            hl.Parent = v
-            ObjectHL[v] = hl
+            color = COLORS.Pallet
+        elseif (v.Name == "ExitGate" or v.Name == "ExitLever") and state("GATE_ESP") then
+            color = COLORS.Gate
+        end
 
-        elseif (v.Name == "ExitLever" or v.Name == "ExitGate") and state("GATE_ESP") then
+        if color then
             local hl = Instance.new("Highlight")
             hl.Adornee = v
             hl.FillTransparency = 1
             hl.OutlineTransparency = 0
-            hl.OutlineColor = COLORS.Gate
+            hl.OutlineColor = color
             hl.Parent = v
             ObjectHL[v] = hl
         end
@@ -151,22 +176,32 @@ local function scanObjects()
 end
 
 -- =========================
--- PUBLIC API (TIDAK DIUBAH)
+-- PUBLIC API
 -- =========================
 function ESPModule:Enable()
     if self.Enabled then return end
     self.Enabled = true
-    refreshPlayers()
-    scanObjects()
+
+    UpdateConn = RunService.Heartbeat:Connect(function()
+        updatePlayers()
+    end)
+
+    updateObjects()
 end
 
 function ESPModule:Disable()
     if not self.Enabled then return end
     self.Enabled = false
-    clear(PlayerHL)
-    clear(NameHPGui)
-    clear(NameHPConn)
-    clear(ObjectHL)
+
+    if UpdateConn then
+        UpdateConn:Disconnect()
+        UpdateConn = nil
+    end
+
+    destroy(PlayerHL)
+    destroy(NameHPGui)
+    destroy(NameHPConn)
+    destroy(ObjectHL)
 end
 
 return ESPModule
