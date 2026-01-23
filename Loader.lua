@@ -1,45 +1,54 @@
--- LOADER.LUA (Fixed & Optimized)
-local Loader = {}
-_G.RiiHUB_BaseUrl = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/"
+--==================================================
+-- RIIHUB LOADER (FIX HTTP 404 + SAFE LOAD)
+--==================================================
 
--- Inisialisasi Variabel Global Warna (Agar tidak nil saat ESP dinyalakan)
-_G.SurvivorColor = Color3.fromRGB(0, 255, 13)
-_G.KillerColor = Color3.fromRGB(255, 0, 0)
-_G.GenColor = Color3.fromRGB(255, 255, 0)
+-- Anti double execute
+if _G.RIIHUB_LOADED then
+    warn("[RiiHUB] Loader sudah dijalankan")
+    return
+end
+_G.RIIHUB_LOADED = true
 
--- Fungsi untuk menjalankan Module dari GitHub secara dinamis
-function Loader.RunModule(fileName, state)
-    local success, scriptContent = pcall(function()
-        return game:HttpGet(_G.RiiHUB_BaseUrl .. fileName)
+local function loadModule(name, url)
+    local success, result = pcall(function()
+        return game:HttpGet(url)
     end)
 
-    if success then
-        local func, err = loadstring(scriptContent)
-        if func then
-            local module = func()
-            if type(module) == "function" then
-                module(state) -- Mengirimkan true/false ke ESPModule.lua
-                print("RiiHUB: " .. fileName .. " is now " .. (state and "ON" or "OFF"))
-            end
-        else
-            warn("RiiHUB Error: Syntax error di " .. fileName .. " -> " .. tostring(err))
-        end
-    else
-        warn("RiiHUB Error: File tidak ditemukan di GitHub: " .. fileName)
+    if not success or not result then
+        warn("[RiiHUB] Gagal load:", name)
+        return nil
     end
+
+    local ok, module = pcall(function()
+        return loadstring(result)()
+    end)
+
+    if not ok then
+        warn("[RiiHUB] Error eksekusi:", name)
+        return nil
+    end
+
+    print("[RiiHUB] Loaded:", name)
+    return module
 end
 
--- Simpan Loader ke Global agar bisa diakses HomeGui
-_G.RiiLoader = Loader
+-- ================= LOAD MODULES =================
 
--- Memanggil HomeGui.lua
-print("RiiHUB: Loading UI...")
-local uiSuccess, uiErr = pcall(function()
-    loadstring(game:HttpGet(_G.RiiHUB_BaseUrl .. "HomeGui.lua"))()
-end)
+local ESP = loadModule(
+    "ESPModule",
+    "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/ESPModule.lua"
+)
 
-if not uiSuccess then
-    warn("RiiHUB Fatal Error: Gagal memuat HomeGui -> " .. tostring(uiErr))
+-- ================= DEFAULT STATE =================
+
+if ESP then
+    -- Semua toggle TERPISAH
+    ESP:SetPlayer(true)      -- Survivor + Killer
+    ESP:SetGenerator(true)   -- Generator
+    ESP:SetPallet(true)      -- Pallet
+    ESP:SetGate(true)        -- Gate
+else
+    warn("[RiiHUB] ESPModule tidak berhasil dimuat")
 end
 
-return Loader
+print("[RiiHUB] Loader selesai")
