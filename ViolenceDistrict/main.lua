@@ -1,124 +1,103 @@
--- ViolenceDistrict/main.lua
--- Fokus ESP per kategori (no global ESP)
--- Sidebar: ESP / Survivor / Killer / Other / Visual
+-- =====================================================
+-- RiiHUB - ViolenceDistrict/main.lua
+-- Entry point Violence District
+-- ESP per kategori + Name & HP
+-- =====================================================
 
-print("[RiiHUB] ViolenceDistrict main.lua loaded")
+print("[RiiHUB] ViolenceDistrict main.lua start")
 
--- ======================================================
--- UI API
--- ======================================================
+-- Tunggu HomeGui UI API siap
+repeat task.wait() until _G.RiiHUB_UI
 local UI = _G.RiiHUB_UI
-if not UI then
-	warn("[RiiHUB] UI API belum tersedia")
-	return
-end
 
--- ======================================================
--- LOAD ESP MODULE
--- ======================================================
+-- =====================================================
+-- LOAD ESP MODULE (STABLE, TIDAK DIUBAH)
+-- =====================================================
 local BASE = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/ViolenceDistrict/"
 
 local function loadModule(file)
-	local ok, mod = pcall(function()
-		return loadstring(game:HttpGet(BASE .. file))()
-	end)
-	if not ok then
-		warn("[RiiHUB] Gagal load:", file)
-		return nil
-	end
-	return mod
+    local ok, mod = pcall(function()
+        return loadstring(game:HttpGet(BASE .. file))()
+    end)
+    if not ok then
+        warn("[RiiHUB] Gagal load module:", file)
+        return nil
+    end
+    return mod
 end
 
 local ESP = loadModule("ESPModule.lua")
+if not ESP then
+    warn("[RiiHUB] ESPModule gagal dimuat")
+    return
+end
 
--- Simpan global (opsional)
+-- Global (opsional)
 _G.RiiHUB = _G.RiiHUB or {}
-_G.RiiHUB.Modules = { ESP = ESP }
+_G.RiiHUB.Modules = _G.RiiHUB.Modules or {}
+_G.RiiHUB.Modules.ESP = ESP
 
--- ======================================================
--- SIDEBAR TABS (FIXED)
--- ======================================================
+-- =====================================================
+-- SIDEBAR
+-- =====================================================
 UI:AddTab("ESP")
 UI:AddTab("Survivor")
 UI:AddTab("Killer")
 UI:AddTab("Other")
 UI:AddTab("Visual")
 
--- ======================================================
--- ESP TAB (PER CATEGORY CONTROL)
--- ======================================================
-if ESP then
-	-- Survivor ESP
-	local tSurv = UI:AddToggle("ESP", "Survivor ESP")
-	if tSurv then
-		tSurv:Bind(function(on)
-			if on then
-				ESP:EnableSurvivor()
-			else
-				ESP:DisableSurvivor()
-			end
-		end)
-	end
+-- =====================================================
+-- ESP TAB (PER KATEGORI)
+-- =====================================================
 
-	-- Killer ESP
-	local tKill = UI:AddToggle("ESP", "Killer ESP")
-	if tKill then
-		tKill:Bind(function(on)
-			if on then
-				ESP:EnableKiller()
-			else
-				ESP:DisableKiller()
-			end
-		end)
-	end
-
-	-- Generator ESP
-	local tGen = UI:AddToggle("ESP", "Generator ESP")
-	if tGen then
-		tGen:Bind(function(on)
-			if on then
-				ESP:EnableGenerator()
-			else
-				ESP:DisableGenerator()
-			end
-		end)
-	end
-
-	-- Pallet ESP
-	local tPal = UI:AddToggle("ESP", "Pallet ESP")
-	if tPal then
-		tPal:Bind(function(on)
-			if on then
-				ESP:EnablePallet()
-			else
-				ESP:DisablePallet()
-			end
-		end)
-	end
-
-	-- Gate ESP
-	local tGate = UI:AddToggle("ESP", "Gate ESP")
-	if tGate then
-		tGate:Bind(function(on)
-			if on then
-				ESP:EnableGate()
-			else
-				ESP:DisableGate()
-			end
-		end)
-	end
-
-	-- Name + HP ESP
-	local tNameHp = UI:AddToggle("ESP", "Name + HP")
-	if tNameHp then
-		tNameHp:Bind(function(on)
-			if on then
-				ESP:EnableNameHP()
-			else
-				ESP:DisableNameHP()
-			end
-		end)
-	end
+-- Player ESP (Survivor + Killer)
+do
+    local t = UI:AddToggle("ESP", "Player ESP")
+    if t then
+        t:Bind(function(state)
+            ESP:SetPlayer(state)
+        end)
+    end
 end
 
-print("[RiiHUB] ViolenceDistrict ESP UI siap (semua OFF)")
+-- Name + HP ESP
+do
+    local t = UI:AddToggle("ESP", "Name + HP")
+    if t then
+        t:Bind(function(state)
+            ESP:SetNameHP(state)
+        end)
+    end
+end
+
+-- Generator ESP
+do
+    local t = UI:AddToggle("ESP", "Generator ESP")
+    if t then
+        t:Bind(function(state)
+            ESP:SetGenerator(state)
+        end)
+    end
+end
+
+-- Pallet ESP
+do
+    local t = UI:AddToggle("ESP", "Pallet ESP")
+    if t then
+        t:Bind(function(state)
+            ESP:SetPallet(state)
+        end)
+    end
+end
+
+-- Gate ESP
+do
+    local t = UI:AddToggle("ESP", "Gate ESP")
+    if t then
+        t:Bind(function(state)
+            ESP:SetGate(state)
+        end)
+    end
+end
+
+print("[RiiHUB] ViolenceDistrict ESP + NameHP siap (semua OFF)")
