@@ -1,78 +1,76 @@
--- RiiHUB Loader.lua (FINAL FIX - NO 404)
+-- Loader.lua (RiiHUB FINAL FIX)
+-- Tugas: Load HomeGui DULU, baru load main.lua game
 
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local player = Players.LocalPlayer
-local guiParent = player:WaitForChild("PlayerGui")
+local LocalPlayer = Players.LocalPlayer
 
-local PLACE_ID = game.PlaceId
+-- ===============================
+-- DEBUG INFO
+-- ===============================
+print("========== RiiHUB DEBUG ==========")
+print("PlaceId :", game.PlaceId)
+print("JobId   :", game.JobId)
+print("Game    :", game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name)
+print("=================================")
 
--- PlaceId → Folder Mapping (SESUAI STRUKTUR ASLI REPO)
-local GAME_MAP = {
-    [93978595733734] = "ViolenceDistrict",
-    [6358567974] = "SalonDeFiestas",
+-- ===============================
+-- LOAD HOMEGUI FIRST (WAJIB)
+-- ===============================
+local successGui, errGui = pcall(function()
+    loadstring(game:HttpGet(
+        "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/HomeGui.lua"
+    ))()
+end)
+
+if not successGui then
+    warn("[RiiHUB] Gagal load HomeGui.lua")
+    warn(errGui)
+    return
+end
+
+-- ===============================
+-- WAIT UI API READY
+-- ===============================
+local timeout = 0
+while not _G.RiiHUB_RegisterMenu do
+    task.wait(0.05)
+    timeout += 0.05
+    if timeout > 5 then
+        warn("[RiiHUB] UI API timeout (HomeGui gagal init)")
+        return
+    end
+end
+
+print("[RiiHUB] UI API siap")
+
+-- ===============================
+-- GAME ROUTER
+-- ===============================
+local GAME_MAIN = {
+    [93978595733734] = "ViolenceDistrict/main.lua",
+    [6358567974]     = "SalonDeFiestas/main.lua",
 }
 
-local gameFolder = GAME_MAP[PLACE_ID]
+local path = GAME_MAIN[game.PlaceId]
 
-if not gameFolder then
-    warn("[RiiHUB] Game tidak didukung. PlaceId:", PLACE_ID)
+if not path then
+    warn("[RiiHUB] Game tidak didukung, UI tidak dimuat")
     return
 end
 
--- ===== LOAD MAIN.LUA (FIX URL) =====
-local mainUrl = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/"..gameFolder.."/main.lua"
-
-local success, err = pcall(function()
-    loadstring(game:HttpGet(mainUrl))()
+-- ===============================
+-- LOAD GAME MAIN
+-- ===============================
+local successMain, errMain = pcall(function()
+    loadstring(game:HttpGet(
+        "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/" .. path
+    ))()
 end)
 
-if not success then
-    warn("[RiiHUB] Gagal load main.lua:", err)
+if not successMain then
+    warn("[RiiHUB] Gagal load game main.lua")
+    warn(errMain)
     return
 end
 
--- ===== POPUP SUCCESS =====
-local popup = Instance.new("ScreenGui", guiParent)
-popup.Name = "RiiHUB_Popup"
-
-local frame = Instance.new("Frame", popup)
-frame.Size = UDim2.fromScale(0,0)
-frame.Position = UDim2.fromScale(0.85,0.85)
-frame.AnchorPoint = Vector2.new(0.5,0.5)
-frame.BackgroundColor3 = Color3.fromRGB(35,5,60)
-frame.BorderSizePixel = 0
-frame.ZIndex = 50
-
-local corner = Instance.new("UICorner", frame)
-corner.CornerRadius = UDim.new(0,14)
-
-local text = Instance.new("TextLabel", frame)
-text.Size = UDim2.fromScale(1,1)
-text.BackgroundTransparency = 1
-text.Text = "[R] Game berhasil diload\n"..gameFolder
-text.Font = Enum.Font.GothamBold
-text.TextScaled = true
-text.TextColor3 = Color3.fromRGB(190,130,255)
-text.ZIndex = 51
-
-TweenService:Create(
-    frame,
-    TweenInfo.new(0.35, Enum.EasingStyle.Back),
-    {Size = UDim2.fromScale(0.28,0.14)}
-):Play()
-
-task.delay(2.5, function()
-    popup:Destroy()
-end)
-
--- ===== LOAD HOMEGUI (FIX URL) =====
-task.wait(0.2)
-
-local guiUrl = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/HomeGui.lua"
-
-pcall(function()
-    loadstring(game:HttpGet(guiUrl))()
-end)
-
-print("[RiiHUB] Loader selesai tanpa error")
+print("[RiiHUB] Game module loaded:", path)
