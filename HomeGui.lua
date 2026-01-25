@@ -1,5 +1,5 @@
 -- RiiHUB HomeGui.lua
--- UI ONLY | Tab Container | Switch Toggle | Minimize + Floating | STABLE
+-- UI ONLY | Tab Container | Switch Toggle | Minimize + Floating | READY SIGNAL
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -101,34 +101,6 @@ floatBtn.BorderSizePixel = 0
 Instance.new("UICorner", floatBtn).CornerRadius = UDim.new(1,0)
 
 -------------------------------------------------
--- DRAG FLOAT
--------------------------------------------------
-do
-    local drag, start, pos
-    floatBtn.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then
-            drag = true
-            start = i.Position
-            pos = floatBtn.Position
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if drag and i.UserInputType == Enum.UserInputType.MouseMovement then
-            local d = i.Position - start
-            floatBtn.Position = UDim2.new(
-                pos.X.Scale, pos.X.Offset + d.X,
-                pos.Y.Scale, pos.Y.Offset + d.Y
-            )
-        end
-    end)
-    UIS.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then
-            drag = false
-        end
-    end)
-end
-
--------------------------------------------------
 -- MINIMIZE / CLOSE
 -------------------------------------------------
 local minimized = false
@@ -150,6 +122,7 @@ end)
 local UI = {}
 local tabs = {}
 local currentTab
+local ready = false
 
 -------------------------------------------------
 -- REGISTER TAB
@@ -193,8 +166,6 @@ end
 -- SWITCH TOGGLE
 -------------------------------------------------
 function UI:AddToggle(tab, label, callback)
-    assert(tab and tab:IsA("Frame"), "Tab tidak valid")
-
     local row = Instance.new("Frame", tab)
     row.Size = UDim2.new(1, -20, 0, 44)
     row.BackgroundColor3 = Color3.fromRGB(80,30,130)
@@ -224,7 +195,6 @@ function UI:AddToggle(tab, label, callback)
     Instance.new("UICorner", knob).CornerRadius = UDim.new(1,0)
 
     local state = false
-
     local function set(v)
         state = v
         TweenService:Create(knob, TweenInfo.new(0.2),
@@ -241,7 +211,12 @@ function UI:AddToggle(tab, label, callback)
 end
 
 -------------------------------------------------
--- EXPORT
+-- READY SIGNAL
 -------------------------------------------------
+function UI:WaitUntilReady()
+    while not ready do task.wait() end
+end
+
+ready = true
 _G.RiiHUB_UI = UI
-print("[RiiHUB] HomeGui READY (Tab + Toggle + Minimize)")
+print("[RiiHUB] HomeGui READY")
