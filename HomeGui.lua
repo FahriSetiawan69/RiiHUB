@@ -1,73 +1,79 @@
--- HomeGui.lua (FINAL)
-
--- ⛔ JANGAN AUTO RETURN
-repeat task.wait() until _G.RiiHUB and _G.RiiHUB.Game
+-- HomeGui.lua (FINAL SAFE)
 
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local player = Players.LocalPlayer
-local guiParent = player:WaitForChild("PlayerGui")
+local lp = Players.LocalPlayer
+local pgui = lp:WaitForChild("PlayerGui")
 
--- CLEAN OLD
-pcall(function()
-    guiParent.RiiHUB:Destroy()
-end)
+-- Tunggu data game
+repeat task.wait() until _G.RiiHUB and _G.RiiHUB.Game and _G.RiiHUB.Game.Sidebar
 
-local ScreenGui = Instance.new("ScreenGui", guiParent)
-ScreenGui.Name = "RiiHUB"
-
-local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.fromScale(0.65,0.6)
-Main.Position = UDim2.fromScale(0.5,0.5)
-Main.AnchorPoint = Vector2.new(0.5,0.5)
-Main.BackgroundColor3 = Color3.fromRGB(40,10,70)
-Main.BorderSizePixel = 0
-Main.BackgroundTransparency = 0.05
-Main.UICorner = Instance.new("UICorner", Main)
-Main.UICorner.CornerRadius = UDim.new(0,20)
-
--- TITLE
-local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.fromScale(1,0.1)
-Title.Text = "RiiHUB"
-Title.Font = Enum.Font.GothamBold
-Title.TextScaled = true
-Title.TextColor3 = Color3.fromRGB(180,120,255)
-Title.BackgroundTransparency = 1
-
--- SIDEBAR
-local Sidebar = Instance.new("Frame", Main)
-Sidebar.Size = UDim2.fromScale(0.2,0.9)
-Sidebar.Position = UDim2.fromScale(0,0.1)
-Sidebar.BackgroundTransparency = 1
-
--- CONTENT
-local Content = Instance.new("Frame", Main)
-Content.Size = UDim2.fromScale(0.8,0.9)
-Content.Position = UDim2.fromScale(0.2,0.1)
-Content.BackgroundTransparency = 1
-
--- GENERATE SIDEBAR BUTTONS
-local y = 0
-for _,tabName in ipairs(_G.RiiHUB.Game.Sidebar) do
-    local btn = Instance.new("TextButton", Sidebar)
-    btn.Size = UDim2.fromScale(1,0.08)
-    btn.Position = UDim2.fromScale(0,y)
-    btn.Text = tabName
-    btn.BackgroundColor3 = Color3.fromRGB(60,20,90)
-    btn.TextColor3 = Color3.fromRGB(200,160,255)
-    btn.Font = Enum.Font.Gotham
-    btn.TextScaled = true
-    btn.BorderSizePixel = 0
-    btn.AutoButtonColor = false
-    btn.UICorner = Instance.new("UICorner", btn)
-    y += 0.09
+-- Cegah double UI
+if pgui:FindFirstChild("RiiHUB_UI") then
+    pgui.RiiHUB_UI:Destroy()
 end
 
-TweenService:Create(
-    Main,
-    TweenInfo.new(0.4, Enum.EasingStyle.Back),
-    {Size = UDim2.fromScale(0.75,0.65)}
-):Play()
+-- ScreenGui
+local gui = Instance.new("ScreenGui")
+gui.Name = "RiiHUB_UI"
+gui.IgnoreGuiInset = true
+gui.ResetOnSpawn = false
+gui.Parent = pgui
+
+-- Main Frame
+local main = Instance.new("Frame", gui)
+main.Size = UDim2.fromScale(0.75, 0.6)
+main.Position = UDim2.fromScale(0.125, 0.2)
+main.BackgroundColor3 = Color3.fromRGB(40, 10, 70)
+main.BackgroundTransparency = 0.05
+main.BorderSizePixel = 0
+main.Name = "Main"
+
+local corner = Instance.new("UICorner", main)
+corner.CornerRadius = UDim.new(0, 18)
+
+-- Title
+local title = Instance.new("TextLabel", main)
+title.Size = UDim2.fromScale(1, 0.08)
+title.BackgroundTransparency = 1
+title.Text = "RiiHUB - " .. (_G.RiiHUB.Game.Name or "Unknown")
+title.TextColor3 = Color3.fromRGB(190, 120, 255)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 22
+
+-- Sidebar
+local sidebar = Instance.new("Frame", main)
+sidebar.Size = UDim2.fromScale(0.18, 0.92)
+sidebar.Position = UDim2.fromScale(0, 0.08)
+sidebar.BackgroundColor3 = Color3.fromRGB(30, 5, 55)
+sidebar.BorderSizePixel = 0
+
+local list = Instance.new("UIListLayout", sidebar)
+list.Padding = UDim.new(0, 8)
+
+-- Content
+local content = Instance.new("Frame", main)
+content.Size = UDim2.fromScale(0.82, 0.92)
+content.Position = UDim2.fromScale(0.18, 0.08)
+content.BackgroundTransparency = 1
+
+-- Generate Sidebar Buttons
+for _, tabName in ipairs(_G.RiiHUB.Game.Sidebar) do
+    local btn = Instance.new("TextButton", sidebar)
+    btn.Size = UDim2.fromScale(1, 0.08)
+    btn.Text = tabName
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 16
+    btn.TextColor3 = Color3.fromRGB(220, 180, 255)
+    btn.BackgroundColor3 = Color3.fromRGB(60, 20, 100)
+    btn.BorderSizePixel = 0
+
+    local c = Instance.new("UICorner", btn)
+    c.CornerRadius = UDim.new(0, 10)
+
+    btn.MouseButton1Click:Connect(function()
+        print("[RiiHUB] Tab selected :", tabName)
+        -- nanti di sini kamu sambungkan ke module
+    end)
+end
 
 print("[RiiHUB] HomeGui loaded successfully")
