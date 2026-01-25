@@ -1,11 +1,14 @@
--- ViolenceDistrict/main.lua (FINAL)
+-- ViolenceDistrict/main.lua FINAL
 
 _G.RiiHUB = _G.RiiHUB or {}
+
+local ESP = loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/ViolenceDistrict/ESPModule.lua"
+))()
 
 _G.RiiHUB.Game = {
     Name = "Violence District",
 
-    -- SIDEBAR INI WAJIB, TANPA INI UI KOSONG
     Sidebar = {
         "ESP",
         "Survivor",
@@ -14,7 +17,9 @@ _G.RiiHUB.Game = {
         "Visual",
     },
 
-    Modules = {}, -- nanti ESPModule, dll masuk sini
+    Modules = {
+        ESP = ESP
+    }
 }
 
 print("[RiiHUB] ViolenceDistrict main.lua loaded")
