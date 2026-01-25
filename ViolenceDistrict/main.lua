@@ -1,13 +1,11 @@
 -- RiiHUB | ViolenceDistrict main.lua
--- PURPOSE:
--- - Bridge HomeGui <-> ESPModule
--- - NO ESP LOGIC MODIFIED
--- - SAFE WAIT + SAFE CALL
+-- BRIDGE: HomeGui -> ESPModule
+-- ESP LOGIC: UNTOUCHED
 
 print("[RiiHUB] ViolenceDistrict main.lua loading...")
 
 -------------------------------------------------
--- WAIT HOMEGUI READY
+-- WAIT HOME GUI
 -------------------------------------------------
 local function waitForUI()
     while not _G.RiiHUB_UI do
@@ -25,61 +23,48 @@ local UI = waitForUI()
 print("[RiiHUB] HomeGui connected")
 
 -------------------------------------------------
--- LOAD ESP MODULE (NO LOGIC CHANGE)
+-- LOAD ESP MODULE (SIDE EFFECT BASED)
 -------------------------------------------------
-local ESPModule
-do
-    local ok, result = pcall(function()
-        return loadstring(game:HttpGet(
-            "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/ViolenceDistrict/ESPModule.lua"
-        ))()
-    end)
+local ok, err = pcall(function()
+    loadstring(game:HttpGet(
+        "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/ViolenceDistrict/ESPModule.lua"
+    ))()
+end)
 
-    if not ok then
-        warn("[RiiHUB] Failed to load ESPModule:", result)
-        return
-    end
-
-    ESPModule = result
+if not ok then
+    warn("[RiiHUB] ESPModule load failed:", err)
+    return
 end
 
-print("[RiiHUB] ESPModule loaded")
+print("[RiiHUB] ESPModule injected")
 
 -------------------------------------------------
--- SAFE ESP CALLER (ANTI ERROR)
+-- ESP DISPATCHER (MATCH REAL ESP LOGIC)
 -------------------------------------------------
 local function setESP(category, state)
-    if not ESPModule then return end
+    local enableFn = _G["Enable" .. category .. "ESP"]
+    local disableFn = _G["Disable" .. category .. "ESP"]
 
-    -- Pattern 1: ESPModule:SetEnabled("Survivor", true)
-    if ESPModule.SetEnabled then
-        pcall(ESPModule.SetEnabled, ESPModule, category, state)
+    if state and type(enableFn) == "function" then
+        enableFn()
         return
     end
 
-    -- Pattern 2: ESPModule.EnableSurvivor / DisableSurvivor
-    local fnName = (state and "Enable" or "Disable") .. category
-    if ESPModule[fnName] then
-        pcall(ESPModule[fnName], ESPModule)
+    if not state and type(disableFn) == "function" then
+        disableFn()
         return
     end
 
-    -- Pattern 3: ESPModule.Survivor = true
-    if ESPModule[category] ~= nil then
-        ESPModule[category] = state
-        return
-    end
-
-    warn("[RiiHUB] ESP handler not found for:", category)
+    warn("[RiiHUB] ESP function missing:", category)
 end
 
 -------------------------------------------------
--- REGISTER UI TABS
+-- REGISTER TAB
 -------------------------------------------------
 local tabESP = UI:RegisterTab("ESP")
 
 -------------------------------------------------
--- REGISTER ESP TOGGLES (PER CATEGORY)
+-- TOGGLES (PER CATEGORY)
 -------------------------------------------------
 UI:AddToggle(tabESP, "Survivor ESP", function(v)
     setESP("Survivor", v)
@@ -106,6 +91,6 @@ UI:AddToggle(tabESP, "Name + HP", function(v)
 end)
 
 -------------------------------------------------
--- FINAL CONFIRMATION
+-- DONE
 -------------------------------------------------
-print("[RiiHUB] ViolenceDistrict ESP menu registered successfully")
+print("[RiiHUB] ViolenceDistrict ESP UI linked successfully")
