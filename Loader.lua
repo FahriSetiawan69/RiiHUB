@@ -1,47 +1,77 @@
--- Loader.lua (FINAL CLEAN ROUTER)
+-- RiiHUB Loader.lua (FINAL STABLE)
+
+if _G.__RIIHUB_LOADER_LOCK then
+    return
+end
+_G.__RIIHUB_LOADER_LOCK = true
 
 print("[RiiHUB] Loader start")
 
-_G.RiiHUB = _G.RiiHUB or {}
+-------------------------------------------------
+-- LOAD HOME GUI (ONCE)
+-------------------------------------------------
+if not _G.RiiHUB_UI then
+    local ok, err = pcall(function()
+        loadstring(game:HttpGet(
+            "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/HomeGui.lua"
+        ))()
+    end)
 
-local GAME_MAP = {
-    [93978595733734] = "ViolenceDistrict",
-    [6358567974] = "SalonDeFiestas",
-}
+    if not ok then
+        warn("[RiiHUB] Failed to load HomeGui:", err)
+        return
+    end
 
-local folder = GAME_MAP[game.PlaceId]
-if not folder then
-    warn("[RiiHUB] Game tidak didukung:", game.PlaceId)
-    return
+    print("[RiiHUB] HomeGui READ")
+else
+    print("[RiiHUB] HomeGui already loaded")
 end
 
--- Load HomeGui FIRST
-local homeUrl = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/HomeGui.lua"
-local okUI, errUI = pcall(function()
-    loadstring(game:HttpGet(homeUrl))()
+-------------------------------------------------
+-- WAIT UI ENGINE READY (NO LOOP CALL)
+-------------------------------------------------
+task.spawn(function()
+    while not (_G.RiiHUB_UI and _G.RiiHUB_UI.Ready) do
+        task.wait()
+    end
+
+    print("[RiiHUB] UI Engine ready")
+
+    -------------------------------------------------
+    -- GAME DETECTION (ONCE)
+    -------------------------------------------------
+    local placeId = game.PlaceId
+    local gameMap = {
+        [93978595733734] = "ViolenceDistrict",
+        [6358567974]     = "SalonDeFiestas"
+    }
+
+    local gameName = gameMap[placeId]
+    if not gameName then
+        warn("[RiiHUB] Game not supported:", placeId)
+        return
+    end
+
+    if _G.__RIIHUB_GAME_LOADED then
+        return
+    end
+    _G.__RIIHUB_GAME_LOADED = true
+
+    -------------------------------------------------
+    -- LOAD GAME MAIN.LUA (ONCE)
+    -------------------------------------------------
+    print("[RiiHUB] Loading game:", gameName)
+
+    local ok, err = pcall(function()
+        loadstring(game:HttpGet(
+            "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/" .. gameName .. "/main.lua"
+        ))()
+    end)
+
+    if not ok then
+        warn("[RiiHUB] Failed to load main.lua:", err)
+        return
+    end
+
+    print("[RiiHUB] " .. gameName .. " main.lua loaded")
 end)
-
-if not okUI then
-    warn("[RiiHUB] Gagal load HomeGui.lua")
-    warn(errUI)
-    return
-end
-
--- Tunggu UI API siap
-repeat task.wait() until _G.RiiHUB_UI
-
-print("[RiiHUB] UI Engine ready")
-
--- Load Game main.lua
-local mainUrl = ("https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/%s/main.lua"):format(folder)
-local okGame, errGame = pcall(function()
-    loadstring(game:HttpGet(mainUrl))()
-end)
-
-if not okGame then
-    warn("[RiiHUB] Gagal load main.lua game")
-    warn(errGame)
-    return
-end
-
-print("[RiiHUB] Game loaded:", folder)
