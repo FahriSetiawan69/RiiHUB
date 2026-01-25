@@ -1,122 +1,111 @@
--- =====================================================
--- RiiHUB | Violence District - main.lua
--- Bertugas: Mengikat ESPModule ke HomeGui (UI)
--- =====================================================
+-- RiiHUB | ViolenceDistrict main.lua
+-- PURPOSE:
+-- - Bridge HomeGui <-> ESPModule
+-- - NO ESP LOGIC MODIFIED
+-- - SAFE WAIT + SAFE CALL
 
-print("[RiiHUB] ViolenceDistrict main.lua loaded")
+print("[RiiHUB] ViolenceDistrict main.lua loading...")
 
--- Ambil UI API dari HomeGui
-local UI = _G.RiiHUB_UI
-if not UI then
-    warn("[RiiHUB] UI API belum tersedia")
-    return
+-------------------------------------------------
+-- WAIT HOMEGUI READY
+-------------------------------------------------
+local function waitForUI()
+    while not _G.RiiHUB_UI do
+        task.wait()
+    end
+
+    if _G.RiiHUB_UI.WaitUntilReady then
+        _G.RiiHUB_UI:WaitUntilReady()
+    end
+
+    return _G.RiiHUB_UI
 end
 
--- Helper load module
-local BASE_URL = "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/ViolenceDistrict/"
+local UI = waitForUI()
+print("[RiiHUB] HomeGui connected")
 
-local function LoadModule(file)
+-------------------------------------------------
+-- LOAD ESP MODULE (NO LOGIC CHANGE)
+-------------------------------------------------
+local ESPModule
+do
     local ok, result = pcall(function()
-        return loadstring(game:HttpGet(BASE_URL .. file))()
+        return loadstring(game:HttpGet(
+            "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/ViolenceDistrict/ESPModule.lua"
+        ))()
     end)
+
     if not ok then
-        warn("[RiiHUB] Gagal load module:", file)
-        return nil
+        warn("[RiiHUB] Failed to load ESPModule:", result)
+        return
     end
-    return result
+
+    ESPModule = result
 end
 
--- Load ESPModule (TANPA MODIFIKASI LOGIC)
-local ESP = LoadModule("ESPModule.lua")
-if not ESP then
-    warn("[RiiHUB] ESPModule gagal dimuat")
-    return
-end
+print("[RiiHUB] ESPModule loaded")
 
--- Simpan ke global (opsional / debug)
-_G.RiiHUB = _G.RiiHUB or {}
-_G.RiiHUB.Modules = _G.RiiHUB.Modules or {}
-_G.RiiHUB.Modules.ESP = ESP
+-------------------------------------------------
+-- SAFE ESP CALLER (ANTI ERROR)
+-------------------------------------------------
+local function setESP(category, state)
+    if not ESPModule then return end
 
--- =====================================================
--- Sidebar Tabs
--- =====================================================
-UI:AddTab("ESP")
-UI:AddTab("Survivor")
-UI:AddTab("Killer")
-UI:AddTab("Other")
-UI:AddTab("Visual")
-
--- =====================================================
--- ESP : Survivor
--- =====================================================
-do
-    local t = UI:AddToggle("Survivor", "Survivor ESP")
-    if t then
-        t:Bind(function(state)
-            ESP:SetSurvivor(state)
-        end)
+    -- Pattern 1: ESPModule:SetEnabled("Survivor", true)
+    if ESPModule.SetEnabled then
+        pcall(ESPModule.SetEnabled, ESPModule, category, state)
+        return
     end
-end
 
--- =====================================================
--- ESP : Killer
--- =====================================================
-do
-    local t = UI:AddToggle("Killer", "Killer ESP")
-    if t then
-        t:Bind(function(state)
-            ESP:SetKiller(state)
-        end)
+    -- Pattern 2: ESPModule.EnableSurvivor / DisableSurvivor
+    local fnName = (state and "Enable" or "Disable") .. category
+    if ESPModule[fnName] then
+        pcall(ESPModule[fnName], ESPModule)
+        return
     end
-end
 
--- =====================================================
--- ESP : Generator
--- =====================================================
-do
-    local t = UI:AddToggle("ESP", "Generator ESP")
-    if t then
-        t:Bind(function(state)
-            ESP:SetGenerator(state)
-        end)
+    -- Pattern 3: ESPModule.Survivor = true
+    if ESPModule[category] ~= nil then
+        ESPModule[category] = state
+        return
     end
+
+    warn("[RiiHUB] ESP handler not found for:", category)
 end
 
--- =====================================================
--- ESP : Pallet
--- =====================================================
-do
-    local t = UI:AddToggle("ESP", "Pallet ESP")
-    if t then
-        t:Bind(function(state)
-            ESP:SetPallet(state)
-        end)
-    end
-end
+-------------------------------------------------
+-- REGISTER UI TABS
+-------------------------------------------------
+local tabESP = UI:RegisterTab("ESP")
 
--- =====================================================
--- ESP : Gate
--- =====================================================
-do
-    local t = UI:AddToggle("ESP", "Gate ESP")
-    if t then
-        t:Bind(function(state)
-            ESP:SetGate(state)
-        end)
-    end
-end
+-------------------------------------------------
+-- REGISTER ESP TOGGLES (PER CATEGORY)
+-------------------------------------------------
+UI:AddToggle(tabESP, "Survivor ESP", function(v)
+    setESP("Survivor", v)
+end)
 
--- =====================================================
--- ESP : Name + HP
--- =====================================================
-do
-    local t = UI:AddToggle("Visual", "Name + HP")
-    if t then
-        t:Bind(function(state)
-            ESP:SetNameHP(state)
-        end)
-    end
-end
+UI:AddToggle(tabESP, "Killer ESP", function(v)
+    setESP("Killer", v)
+end)
 
-print("[RiiHUB] ESP berhasil di-bind ke HomeGui (semua OFF)")
+UI:AddToggle(tabESP, "Generator ESP", function(v)
+    setESP("Generator", v)
+end)
+
+UI:AddToggle(tabESP, "Pallet ESP", function(v)
+    setESP("Pallet", v)
+end)
+
+UI:AddToggle(tabESP, "Gate ESP", function(v)
+    setESP("Gate", v)
+end)
+
+UI:AddToggle(tabESP, "Name + HP", function(v)
+    setESP("NameHP", v)
+end)
+
+-------------------------------------------------
+-- FINAL CONFIRMATION
+-------------------------------------------------
+print("[RiiHUB] ViolenceDistrict ESP menu registered successfully")
