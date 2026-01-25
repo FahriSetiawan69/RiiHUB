@@ -1,5 +1,5 @@
 -- RiiHUB HomeGui.lua
--- UI ONLY | Switch Toggle | Animated | Stable
+-- UI ONLY | Tab Container | Switch Toggle | Minimize + Floating | STABLE
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -40,7 +40,7 @@ title.Text = "RiiHUB"
 title.Font = Enum.Font.GothamBold
 title.TextSize = 22
 title.TextColor3 = Color3.fromRGB(220,180,255)
-title.TextXAlignment = Left
+title.TextXAlignment = Enum.TextXAlignment.Left
 title.BackgroundTransparency = 1
 
 -------------------------------------------------
@@ -75,18 +75,15 @@ Instance.new("UICorner", sidebar).CornerRadius = UDim.new(0, 18)
 
 local sideLayout = Instance.new("UIListLayout", sidebar)
 sideLayout.Padding = UDim.new(0, 8)
-sideLayout.HorizontalAlignment = Center
+sideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 -------------------------------------------------
--- CONTENT
+-- CONTENT ROOT
 -------------------------------------------------
-local content = Instance.new("Frame", main)
-content.Size = UDim2.new(1, -180, 1, -56)
-content.Position = UDim2.new(0, 180, 0, 56)
-content.BackgroundTransparency = 1
-
-local contentLayout = Instance.new("UIListLayout", content)
-contentLayout.Padding = UDim.new(0, 10)
+local contentRoot = Instance.new("Frame", main)
+contentRoot.Size = UDim2.new(1, -180, 1, -56)
+contentRoot.Position = UDim2.new(0, 180, 0, 56)
+contentRoot.BackgroundTransparency = 1
 
 -------------------------------------------------
 -- FLOATING BUTTON
@@ -132,7 +129,7 @@ do
 end
 
 -------------------------------------------------
--- MINIMIZE
+-- MINIMIZE / CLOSE
 -------------------------------------------------
 local minimized = false
 local function toggleMin()
@@ -151,34 +148,54 @@ end)
 -- UI API
 -------------------------------------------------
 local UI = {}
+local tabs = {}
 local currentTab
 
+-------------------------------------------------
+-- REGISTER TAB
+-------------------------------------------------
 function UI:RegisterTab(name)
-    local b = Instance.new("TextButton", sidebar)
-    b.Size = UDim2.new(1, -20, 0, 36)
-    b.Text = name
-    b.Font = Enum.Font.Gotham
-    b.TextSize = 16
-    b.TextColor3 = Color3.fromRGB(255,230,255)
-    b.BackgroundColor3 = Color3.fromRGB(100,40,160)
-    b.BorderSizePixel = 0
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 10)
+    local btn = Instance.new("TextButton", sidebar)
+    btn.Size = UDim2.new(1, -20, 0, 36)
+    btn.Text = name
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 16
+    btn.TextColor3 = Color3.fromRGB(255,230,255)
+    btn.BackgroundColor3 = Color3.fromRGB(100,40,160)
+    btn.BorderSizePixel = 0
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
 
-    b.MouseButton1Click:Connect(function()
-        for _,v in ipairs(content:GetChildren()) do
-            if v:IsA("Frame") then v.Visible = false end
-        end
-        if currentTab then currentTab.Visible = true end
+    local page = Instance.new("Frame", contentRoot)
+    page.Size = UDim2.new(1, 0, 1, 0)
+    page.BackgroundTransparency = 1
+    page.Visible = false
+
+    local layout = Instance.new("UIListLayout", page)
+    layout.Padding = UDim.new(0, 10)
+
+    tabs[name] = page
+
+    btn.MouseButton1Click:Connect(function()
+        for _,v in pairs(tabs) do v.Visible = false end
+        page.Visible = true
+        currentTab = page
     end)
 
-    return b
+    if not currentTab then
+        page.Visible = true
+        currentTab = page
+    end
+
+    return page
 end
 
 -------------------------------------------------
 -- SWITCH TOGGLE
 -------------------------------------------------
-function UI:AddToggle(_, label, callback)
-    local row = Instance.new("Frame", content)
+function UI:AddToggle(tab, label, callback)
+    assert(tab and tab:IsA("Frame"), "Tab tidak valid")
+
+    local row = Instance.new("Frame", tab)
     row.Size = UDim2.new(1, -20, 0, 44)
     row.BackgroundColor3 = Color3.fromRGB(80,30,130)
     row.BorderSizePixel = 0
@@ -192,7 +209,7 @@ function UI:AddToggle(_, label, callback)
     txt.TextSize = 14
     txt.TextColor3 = Color3.fromRGB(255,255,255)
     txt.BackgroundTransparency = 1
-    txt.TextXAlignment = Left
+    txt.TextXAlignment = Enum.TextXAlignment.Left
 
     local sw = Instance.new("Frame", row)
     sw.Size = UDim2.fromOffset(44, 22)
@@ -213,7 +230,7 @@ function UI:AddToggle(_, label, callback)
         TweenService:Create(knob, TweenInfo.new(0.2),
             {Position = v and UDim2.fromOffset(24,2) or UDim2.fromOffset(2,2)}
         ):Play()
-        callback(v)
+        if callback then callback(v) end
     end
 
     row.InputBegan:Connect(function(i)
@@ -227,4 +244,4 @@ end
 -- EXPORT
 -------------------------------------------------
 _G.RiiHUB_UI = UI
-print("[RiiHUB] HomeGui ready (Switch + Animation)")
+print("[RiiHUB] HomeGui READY (Tab + Toggle + Minimize)")
