@@ -1,79 +1,117 @@
--- HomeGui.lua (FINAL SAFE)
+-- HomeGui.lua (FINAL UI ENGINE)
 
 local Players = game:GetService("Players")
 local lp = Players.LocalPlayer
 local pgui = lp:WaitForChild("PlayerGui")
 
--- Tunggu data game
-repeat task.wait() until _G.RiiHUB and _G.RiiHUB.Game and _G.RiiHUB.Game.Sidebar
-
--- Cegah double UI
+-- Destroy old UI
 if pgui:FindFirstChild("RiiHUB_UI") then
     pgui.RiiHUB_UI:Destroy()
 end
 
--- ScreenGui
-local gui = Instance.new("ScreenGui")
+-- Root GUI
+local gui = Instance.new("ScreenGui", pgui)
 gui.Name = "RiiHUB_UI"
-gui.IgnoreGuiInset = true
 gui.ResetOnSpawn = false
-gui.Parent = pgui
 
 -- Main Frame
 local main = Instance.new("Frame", gui)
-main.Size = UDim2.fromScale(0.75, 0.6)
-main.Position = UDim2.fromScale(0.125, 0.2)
-main.BackgroundColor3 = Color3.fromRGB(40, 10, 70)
-main.BackgroundTransparency = 0.05
+main.Size = UDim2.fromScale(0.7, 0.6)
+main.Position = UDim2.fromScale(0.15, 0.2)
+main.BackgroundColor3 = Color3.fromRGB(35, 10, 60)
 main.BorderSizePixel = 0
-main.Name = "Main"
-
-local corner = Instance.new("UICorner", main)
-corner.CornerRadius = UDim.new(0, 18)
-
--- Title
-local title = Instance.new("TextLabel", main)
-title.Size = UDim2.fromScale(1, 0.08)
-title.BackgroundTransparency = 1
-title.Text = "RiiHUB - " .. (_G.RiiHUB.Game.Name or "Unknown")
-title.TextColor3 = Color3.fromRGB(190, 120, 255)
-title.Font = Enum.Font.GothamBold
-title.TextSize = 22
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 18)
 
 -- Sidebar
 local sidebar = Instance.new("Frame", main)
-sidebar.Size = UDim2.fromScale(0.18, 0.92)
-sidebar.Position = UDim2.fromScale(0, 0.08)
-sidebar.BackgroundColor3 = Color3.fromRGB(30, 5, 55)
+sidebar.Size = UDim2.fromScale(0.18, 1)
+sidebar.BackgroundColor3 = Color3.fromRGB(25, 5, 45)
 sidebar.BorderSizePixel = 0
 
-local list = Instance.new("UIListLayout", sidebar)
-list.Padding = UDim.new(0, 8)
+local sidebarLayout = Instance.new("UIListLayout", sidebar)
+sidebarLayout.Padding = UDim.new(0, 6)
 
 -- Content
 local content = Instance.new("Frame", main)
-content.Size = UDim2.fromScale(0.82, 0.92)
-content.Position = UDim2.fromScale(0.18, 0.08)
+content.Position = UDim2.fromScale(0.18, 0)
+content.Size = UDim2.fromScale(0.82, 1)
 content.BackgroundTransparency = 1
 
--- Generate Sidebar Buttons
-for _, tabName in ipairs(_G.RiiHUB.Game.Sidebar) do
+-- Internal storage
+local Tabs = {}
+local Pages = {}
+
+-- =========================
+-- UI ENGINE API
+-- =========================
+local UI = {}
+
+function UI:AddTab(name)
+    if Tabs[name] then return end
+
     local btn = Instance.new("TextButton", sidebar)
-    btn.Size = UDim2.fromScale(1, 0.08)
-    btn.Text = tabName
+    btn.Size = UDim2.fromScale(1, 0.085)
+    btn.Text = name
     btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 16
-    btn.TextColor3 = Color3.fromRGB(220, 180, 255)
+    btn.TextSize = 15
+    btn.TextColor3 = Color3.fromRGB(210, 170, 255)
     btn.BackgroundColor3 = Color3.fromRGB(60, 20, 100)
     btn.BorderSizePixel = 0
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 10)
 
-    local c = Instance.new("UICorner", btn)
-    c.CornerRadius = UDim.new(0, 10)
+    local page = Instance.new("Frame", content)
+    page.Size = UDim2.fromScale(1, 1)
+    page.Visible = false
+    page.BackgroundTransparency = 1
+
+    local layout = Instance.new("UIListLayout", page)
+    layout.Padding = UDim.new(0, 6)
 
     btn.MouseButton1Click:Connect(function()
-        print("[RiiHUB] Tab selected :", tabName)
-        -- nanti di sini kamu sambungkan ke module
+        for _, p in pairs(Pages) do
+            p.Visible = false
+        end
+        page.Visible = true
     end)
+
+    Tabs[name] = btn
+    Pages[name] = page
+
+    -- Auto select first tab
+    if not UI._Selected then
+        UI._Selected = name
+        page.Visible = true
+    end
 end
 
-print("[RiiHUB] HomeGui loaded successfully")
+function UI:AddToggle(tabName, label, default)
+    local page = Pages[tabName]
+    if not page then return end
+
+    local toggle = Instance.new("TextButton", page)
+    toggle.Size = UDim2.fromScale(0.7, 0.08)
+    toggle.Text = label .. " : OFF"
+    toggle.Font = Enum.Font.GothamBold
+    toggle.TextSize = 14
+    toggle.TextColor3 = Color3.new(1, 1, 1)
+    toggle.BackgroundColor3 = Color3.fromRGB(90, 30, 140)
+    toggle.BorderSizePixel = 0
+    Instance.new("UICorner", toggle).CornerRadius = UDim.new(0, 10)
+
+    local state = default or false
+
+    local api = {}
+    function api:Bind(callback)
+        toggle.MouseButton1Click:Connect(function()
+            state = not state
+            toggle.Text = label .. " : " .. (state and "ON" or "OFF")
+            callback(state)
+        end)
+    end
+
+    return api
+end
+
+-- Expose API
+_G.RiiHUB_UI = UI
+print("[RiiHUB] UI Engine ready")
