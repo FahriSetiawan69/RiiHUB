@@ -1,77 +1,42 @@
--- RiiHUB Loader.lua (FINAL STABLE)
+-- RiiHUB Loader - Game Specific Fix
+local MainFolder = script.Parent
+local PlaceId = game.PlaceId
 
-if _G.__RIIHUB_LOADER_LOCK then
-    return
-end
-_G.__RIIHUB_LOADER_LOCK = true
+local RiiHUB = {
+    Version = "1.0.7",
+}
 
-print("[RiiHUB] Loader start")
+-- DAFTAR ID GAME
+local GameMaps = {
+    [93978595733734] = "ViolenceDistrict", -- ID Panjang (Pastikan PlaceId)
+    [6358567974] = "SalonDeFiestas",      -- Salon De Fiestas
+}
 
--------------------------------------------------
--- LOAD HOME GUI (ONCE)
--------------------------------------------------
-if not _G.RiiHUB_UI then
-    local ok, err = pcall(function()
-        loadstring(game:HttpGet(
-            "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/HomeGui.lua"
-        ))()
-    end)
+-- Deteksi Folder Berdasarkan Game
+local folderName = GameMaps[PlaceId] or "Others"
+local SelectedFolder = MainFolder:FindFirstChild(folderName)
 
-    if not ok then
-        warn("[RiiHUB] Failed to load HomeGui:", err)
-        return
+print("[RiiHUB] Initializing...")
+print("[RiiHUB] Current PlaceId: " .. tostring(PlaceId))
+
+if SelectedFolder then
+    print("[RiiHUB] Target Folder Found: " .. folderName)
+    local HomeGuiModule = MainFolder:FindFirstChild("HomeGui")
+    
+    if HomeGuiModule then
+        local HomeGui = require(HomeGuiModule)
+        task.spawn(function()
+            -- Kirim folder yang terdeteksi ke UI untuk di-render
+            HomeGui:Init(SelectedFolder) 
+        end)
+    else
+        warn("[RiiHUB] Error: HomeGui.lua tidak ditemukan!")
     end
-
-    print("[RiiHUB] HomeGui READ")
 else
-    print("[RiiHUB] HomeGui already loaded")
+    warn("[RiiHUB] PlaceId tidak terdaftar di GameMaps. Memuat folder 'Others'...")
+    local OthersFolder = MainFolder:FindFirstChild("Others")
+    local HomeGui = require(MainFolder.HomeGui)
+    HomeGui:Init(OthersFolder)
 end
 
--------------------------------------------------
--- WAIT UI ENGINE READY (NO LOOP CALL)
--------------------------------------------------
-task.spawn(function()
-    while not (_G.RiiHUB_UI and _G.RiiHUB_UI.Ready) do
-        task.wait()
-    end
-
-    print("[RiiHUB] UI Engine ready")
-
-    -------------------------------------------------
-    -- GAME DETECTION (ONCE)
-    -------------------------------------------------
-    local placeId = game.PlaceId
-    local gameMap = {
-        [93978595733734] = "ViolenceDistrict",
-        [6358567974]     = "SalonDeFiestas"
-    }
-
-    local gameName = gameMap[placeId]
-    if not gameName then
-        warn("[RiiHUB] Game not supported:", placeId)
-        return
-    end
-
-    if _G.__RIIHUB_GAME_LOADED then
-        return
-    end
-    _G.__RIIHUB_GAME_LOADED = true
-
-    -------------------------------------------------
-    -- LOAD GAME MAIN.LUA (ONCE)
-    -------------------------------------------------
-    print("[RiiHUB] Loading game:", gameName)
-
-    local ok, err = pcall(function()
-        loadstring(game:HttpGet(
-            "https://raw.githubusercontent.com/FahriSetiawan69/RiiHUB/main/" .. gameName .. "/main.lua"
-        ))()
-    end)
-
-    if not ok then
-        warn("[RiiHUB] Failed to load main.lua:", err)
-        return
-    end
-
-    print("[RiiHUB] " .. gameName .. " main.lua loaded")
-end)
+return RiiHUB
